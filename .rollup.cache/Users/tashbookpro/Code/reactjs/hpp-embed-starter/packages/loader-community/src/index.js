@@ -1,4 +1,3 @@
-"use strict";
 (function () {
     const DEFAULTS = {
         iframeBase: (typeof window !== 'undefined' ? window.location.origin : '') + '',
@@ -65,4 +64,5 @@
     }
     window.HPPEmbed = { init };
 })();
+export {};
 //# sourceMappingURL=index.js.map

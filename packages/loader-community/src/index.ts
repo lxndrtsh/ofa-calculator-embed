@@ -5,9 +5,15 @@ type Options = {
   referralCookie?: string;
   iframeBase?: string;
 };
+
 declare global {
-  interface Window { HPPEmbed: { init: (elOrId: HTMLElement|string, opts: Options) => void } }
+  interface Window {
+    HPPEmbed: {
+      init: (elOrId: HTMLElement|string, opts: Options) => void;
+    };
+  }
 }
+
 (function () {
   const DEFAULTS: Partial<Options> = {
     iframeBase: (typeof window !== 'undefined' ? window.location.origin : '') + '',
@@ -71,3 +77,6 @@ declare global {
   }
   window.HPPEmbed = { init };
 })();
+
+// Make this file a module so global augmentation works
+export {};

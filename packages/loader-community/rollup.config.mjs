@@ -14,7 +14,11 @@ export default {
     sourcemap: true
   },
   plugins: [
-    typescript({ tsconfig: path.join(__dirname, '../../tsconfig.json') }),
+    typescript({
+      tsconfig: path.join(__dirname, '../../tsconfig.json'),
+      declaration: false,
+      declarationMap: false
+    }),
     terser()
   ]
 };
