@@ -1,0 +1,38 @@
+{
+  "name": "hpp-embed-starter",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:next\" \"npm:dev:loaders\"",
+    "dev:next": "next dev",
+    "dev:loaders": "npm-run-all --parallel dev:loader-impact dev:loader-community",
+    "dev:loader-impact": "rollup -c packages/loader-impact/rollup.config.mjs -w",
+    "dev:loader-community": "rollup -c packages/loader-community/rollup.config.mjs -w",
+    "build": "npm-run-all build:loaders build:next",
+    "build:loaders": "npm-run-all build:loader-impact build:loader-community",
+    "build:loader-impact": "rollup -c packages/loader-impact/rollup.config.mjs",
+    "build:loader-community": "rollup -c packages/loader-community/rollup.config.mjs",
+    "build:next": "next build",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "lucide-react": "^0.552.0",
+    "next": "14.2.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@types/node": "^20.12.8",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "concurrently": "^9.0.1",
+    "eslint": "^9.8.0",
+    "npm-run-all": "^4.1.5",
+    "rollup": "^4.21.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.5"
+  }
+}
