@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
+import { getWebsiteUrl } from '../../utils/db';
+import { generateImpactPDF } from '../../utils/pdfGenerator';
+import { uploadToSpaces } from '../../utils/spacesUpload';
 
 interface ImpactFormData {
   employees: string;
+  planMembers: string;
   company: string;
   city: string;
   state: string;
@@ -17,6 +23,62 @@ interface SubmitBody {
   form: ImpactFormData;
   computed?: any; // Frontend computed values (for reference, but we'll recalculate)
   referralToken: string | null;
+}
+
+interface CountyData {
+  YEAR: number;
+  STATE: string;
+  COUNTY_NAME: string;
+  RATE_PER_100: number;
+}
+
+// Get config directly (same logic as config route)
+function getConfig(formType: 'impact' | 'community') {
+  return {
+    version: 'dev',
+    form: formType,
+    labels: { impact_title: 'Impact Analysis', community_title: 'Return-on-Community' },
+    math: {
+      avg_dependents_per_employee: 2.5,
+      rx_rate: 0.5,
+      opioid_rx_rate: 0.2,
+      at_risk_rate: 0.3,
+      prescriber_non_cdc_rate: 0.9,
+      avg_med_claim_usd: 4000
+    }
+  };
+}
+
+// Load county data directly from file
+let countyDataCache: CountyData[] | null = null;
+async function loadCountyData(): Promise<CountyData[]> {
+  if (countyDataCache) {
+    return countyDataCache;
+  }
+  
+  try {
+    const filePath = join(process.cwd(), 'app', 'data', 'counties-rate-list.json');
+    const fileContents = await readFile(filePath, 'utf8');
+    countyDataCache = JSON.parse(fileContents);
+    return countyDataCache || [];
+  } catch (error) {
+    console.error('Failed to load county data:', error);
+    return [];
+  }
+}
+
+// Get county rate for a specific state + county
+async function getCountyRate(state: string, county: string): Promise<number | null> {
+  if (!state || !county || county === 'County Not Listed') {
+    return null;
+  }
+  
+  const data = await loadCountyData();
+  const match = data.find(
+    item => item.STATE === state && item.COUNTY_NAME === county
+  );
+  
+  return match ? match.RATE_PER_100 : null;
 }
 
 // Stub for HubSpot API call
@@ -38,36 +100,21 @@ export async function POST(req: Request) {
     const body: SubmitBody = await req.json();
     const { form, referralToken } = body;
 
-    // Get config - fetch from same origin
-    const origin = req.headers.get('origin') || req.headers.get('host') || 'localhost:3000';
-    const protocol = origin.includes('localhost') ? 'http' : 'https';
-    const baseUrl = `${protocol}://${origin.replace(/^https?:\/\//, '')}`;
-    const configResponse = await fetch(`${baseUrl}/api/config?version=dev&form=impact`);
-    const config = await configResponse.json();
+    // Get config directly
+    const config = getConfig('impact');
 
     // Get county rate if state and county are provided
-    let countyRate: number | null = null;
-    if (form.state && form.county && form.county !== 'County Not Listed') {
-      try {
-        const countyDataResponse = await fetch(`${baseUrl}/api/data/counties`);
-        const countyData = await countyDataResponse.json();
-        const match = countyData.find(
-          (item: any) => item.STATE === form.state && item.COUNTY_NAME === form.county
-        );
-        if (match) {
-          countyRate = match.RATE_PER_100;
-        }
-      } catch (error) {
-        console.error('Error loading county data:', error);
-      }
-    }
+    const countyRate = await getCountyRate(form.state, form.county);
 
     // Perform calculations
     const employees = Number(form.employees || '0');
-    const members = Math.round(employees * config.math.avg_dependents_per_employee);
+    const planMembersInput = Number(form.planMembers || '0');
+    // If planMembers is provided, use it directly; otherwise calculate from employees
+    const members = planMembersInput > 0 ? planMembersInput : Math.round(employees * config.math.avg_dependents_per_employee);
     const withRx = Math.round(members * config.math.rx_rate);
     
     // Use county-specific opioid_rx_rate if available, otherwise use default
+    // County rate is per 100, so divide by 100 to get the rate
     const opioidRxRate = countyRate !== null ? countyRate / 100 : config.math.opioid_rx_rate;
     const withORx = Math.round(withRx * opioidRxRate);
     const atRisk = Math.round(withORx * config.math.at_risk_rate);
@@ -107,9 +154,68 @@ export async function POST(req: Request) {
 
     // TODO: Add Referral Tool integration here
 
+    // Generate and upload PDF
+    let pdfUrl: string | null = null;
+    try {
+      const pdfBuffer = await generateImpactPDF(
+        {
+          company: form.company,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: form.email,
+        },
+        calculatedResults
+      );
+
+      const fileName = `impact-report-${form.company.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}.pdf`;
+      const uploadResult = await uploadToSpaces(pdfBuffer, fileName, 'application/pdf');
+      pdfUrl = uploadResult.url;
+      console.log('PDF uploaded successfully:', pdfUrl);
+    } catch (pdfError) {
+      // Log error but don't fail the submission if PDF generation/upload fails
+      console.error('Failed to generate or upload PDF:', pdfError);
+      if (pdfError instanceof Error) {
+        console.error('Error details:', {
+          message: pdfError.message,
+          stack: pdfError.stack,
+          endpoint: process.env.DO_SPACES_ENDPOINT,
+          bucket: process.env.DO_SPACES_BUCKET,
+        });
+      }
+    }
+
+    // Send data to external API
+    const websiteUrl = getWebsiteUrl(req);
+    try {
+      const dbUrl = process.env.HPP_DB_URL;
+      if (dbUrl) {
+        await fetch(dbUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            formType: 'impact',
+            websiteUrl,
+            form,
+            results: calculatedResults,
+            pdfUrl: pdfUrl || null,
+            submittedAt: new Date().toISOString(),
+          }),
+        });
+        console.log('Data sent to HPP_DB_URL successfully');
+      } else {
+        console.log('HPP_DB_URL not configured, skipping external API call');
+      }
+    } catch (dbError) {
+      // Log error but don't fail the submission if external API call fails
+      console.error('Failed to send data to external API:', dbError);
+    }
+
     return NextResponse.json({
       ok: true,
       results: calculatedResults,
+      pdfUrl: pdfUrl, // Include PDF URL in response if generated successfully
       message: 'Form submitted successfully',
     }, { status: 200 });
   } catch (error) {
@@ -117,6 +223,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: false,
       error: 'Failed to submit form',
+      details: error instanceof Error ? error.message : String(error),
     }, { status: 500 });
   }
 }

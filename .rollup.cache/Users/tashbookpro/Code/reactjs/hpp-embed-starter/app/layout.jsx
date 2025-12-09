@@ -1,4 +1,4 @@
-export const metadata = { title: 'HPP Embed Host' };
+export const metadata = { title: 'OFA Calculator Host' };
 export default function RootLayout({ children }) {
     return (<html lang="en">
       <head>

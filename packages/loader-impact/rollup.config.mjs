@@ -10,14 +10,15 @@ export default {
   output: {
     file: path.join(__dirname, '../../public/cdn/leadcalc-impact.min.js'),
     format: 'umd',
-    name: 'HPPEmbed',
+    name: 'OFACalculator',
     sourcemap: true
   },
   plugins: [
     typescript({
       tsconfig: path.join(__dirname, '../../tsconfig.json'),
       declaration: false,
-      declarationMap: false
+      declarationMap: false,
+      exclude: ['**/app/**', '**/node_modules/**']
     }),
     terser()
   ]

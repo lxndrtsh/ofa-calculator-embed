@@ -1,7 +1,7 @@
-# Cursor Project Context — HPP Embeddable Lead Calculators
+# Cursor Project Context — OFA Calculator
 
 Hey future-me / Cursor agent 👋  
-This repo is for a **client-facing, embeddable, two-form lead calculator** for **High Performance Providers** (HPP). It’s intended to be dropped into sites like **Go High Level** / **HubSpot** / **WordPress** using a tiny `<script>` tag. The embed should **not** expose private API keys and should be configurable from the server.
+This repo is for a **client-facing, embeddable, two-form lead calculator** for **High Performance Providers** (HPP). It's intended to be dropped into sites like **Go High Level** / **HubSpot** / **WordPress** using a tiny `<script>` tag. The embed should **not** expose private API keys and should be configurable from the server.
 
 This file is here so the agent has the full story and doesn’t “optimize” away decisions we already made.
 
@@ -35,7 +35,7 @@ We are building **two separate widgets** (two different embeds):
   - `/cdn/leadcalc-impact.min.js`
   - `/cdn/leadcalc-community.min.js`
   - These are built with **Rollup** and live in `public/cdn/` so Next.js can serve them.
-  - They expose **one global**: `window.HPPEmbed.init(...)`
+  - They expose **one global**: `window.OFACalculator.init(...)`
 
 - **Iframe apps (React, Next.js App Router):**
   - `/embed/impact`
@@ -74,7 +74,7 @@ npm run dev
 <script src="/cdn/leadcalc-impact.min.js"></script>
 <div id="impact-mount"></div>
 <script>
-  HPPEmbed.init('impact-mount', {
+  OFACalculator.init('impact-mount', {
     apiBase: window.location.origin,
     iframeBase: window.location.origin,
     configVersion: 'dev',
@@ -92,8 +92,8 @@ If `/cdn/leadcalc-impact.min.js` 404s → Rollup didn’t build. See section 5.
 
 - **app/embed/impact/page.tsx**  
   React UI for the employer calculator.  
-  - Sends `HPP_EMBED_READY`  
-  - Waits for `HPP_EMBED_BOOT`  
+  - Sends `OFA_CALCULATOR_READY`  
+  - Waits for `OFA_CALCULATOR_BOOT`  
   - Renders the form, runs the math, then posts to `/api/submit/impact`
 
 - **app/embed/community/page.tsx**  
@@ -150,7 +150,7 @@ export default {
   output: {
     file: path.join(__dirname, '../../public/cdn/leadcalc-impact.min.js'),
     format: 'umd',
-    name: 'HPPEmbed',
+    name: 'OFACalculator',
     sourcemap: true
   },
   plugins: [
@@ -296,9 +296,9 @@ https://YOUR_DOMAIN/cdn/leadcalc-community.min.js
 
 ```html
 <script src="https://YOUR_DOMAIN/cdn/leadcalc-impact.min.js"></script>
-<div id="hpp-impact"></div>
+<div id="ofa-impact"></div>
 <script>
-  HPPEmbed.init('hpp-impact', {
+  OFACalculator.init('ofa-impact', {
     apiBase: 'https://YOUR_DOMAIN',
     iframeBase: 'https://YOUR_DOMAIN',
     configVersion: '1.0.0',
@@ -312,9 +312,9 @@ https://YOUR_DOMAIN/cdn/leadcalc-community.min.js
 
 ```html
 <script src="https://YOUR_DOMAIN/cdn/leadcalc-community.min.js"></script>
-<div id="hpp-community"></div>
+<div id="ofa-community"></div>
 <script>
-  HPPEmbed.init('hpp-community', {
+  OFACalculator.init('ofa-community', {
     apiBase: 'https://YOUR_DOMAIN',
     iframeBase: 'https://YOUR_DOMAIN',
     configVersion: '1.0.0',
@@ -341,7 +341,7 @@ https://YOUR_DOMAIN/cdn/leadcalc-community.min.js
 ## 11. Do NOT refactor these away
 
 - Two separate loader scripts
-- postMessage handshake (`HPP_EMBED_READY` → `HPP_EMBED_BOOT`)
+- postMessage handshake (`OFA_CALCULATOR_READY` → `OFA_CALCULATOR_BOOT`)
 - Host-page cookie read
 - Server-driven math config
 - API submit endpoints

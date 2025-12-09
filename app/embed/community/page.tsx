@@ -11,9 +11,9 @@ function postToParent(msg: any) { window.parent.postMessage(msg, '*'); }
 function useBoot(): Boot|null {
   const [boot, setBoot] = useState<Boot|null>(null);
   useEffect(() => {
-    function onMsg(ev: MessageEvent) { if (ev.data?.type === 'HPP_EMBED_BOOT') setBoot(ev.data.payload as Boot); }
+    function onMsg(ev: MessageEvent) { if (ev.data?.type === 'OFA_CALCULATOR_BOOT') setBoot(ev.data.payload as Boot); }
     window.addEventListener('message', onMsg);
-    postToParent({ type: 'HPP_EMBED_READY' });
+    postToParent({ type: 'OFA_CALCULATOR_READY' });
     return () => window.removeEventListener('message', onMsg);
   }, []);
   return boot;
@@ -24,7 +24,7 @@ function useAutoResize(ref: React.RefObject<HTMLElement>) {
     const ro = new ResizeObserver(entries => {
       for (const e of entries) {
         const h = Math.ceil(e.contentRect.height) + 100; // Add 100px padding
-        postToParent({ type: 'HPP_EMBED_RESIZE', height: h });
+        postToParent({ type: 'OFA_CALCULATOR_RESIZE', height: h });
       }
     });
     ro.observe(ref.current);
@@ -58,6 +58,7 @@ export default function CommunityPage() {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [counties, setCounties] = useState<Array<{ value: string; label: string }>>([]);
   const [countyRate, setCountyRate] = useState<number | null>(null);
+  const [apiResults, setApiResults] = useState<any>(null);
   
   useEffect(() => {
     setMounted(true);
@@ -110,15 +111,14 @@ export default function CommunityPage() {
     }
   }, [form.state, form.county, boot]);
 
-  // Calculations
+  // Use API results if available, otherwise calculate for preview (before submit)
   const pop = Number(form.population || 0);
-  const members = pop;
-  const withRx = cfg ? Math.round(members * cfg.math.rx_rate) : 0;
-  // Use county-specific opioid_rx_rate if available, otherwise use default
-  const opioidRxRate = countyRate !== null ? convertRateToOpioidRxRate(countyRate) : (cfg ? cfg.math.opioid_rx_rate : 0.2);
-  const withORx = cfg ? Math.round(withRx * opioidRxRate) : 0;
-  const atRisk = cfg ? Math.round(withORx * cfg.math.at_risk_rate) : 0;
-  const prescribers = cfg ? Math.round(atRisk * cfg.math.prescriber_non_cdc_rate) : 0;
+  const members = apiResults?.members ?? pop;
+  const withRx = apiResults?.withRx ?? (cfg ? Math.round(members * cfg.math.rx_rate) : 0);
+  const opioidRxRate = apiResults?.opioidRxRate ?? (countyRate !== null ? convertRateToOpioidRxRate(countyRate) : (cfg ? cfg.math.opioid_rx_rate : 0.2));
+  const withORx = apiResults?.withORx ?? (cfg ? Math.round(withRx * opioidRxRate) : 0);
+  const atRisk = apiResults?.atRisk ?? (cfg ? Math.round(withORx * cfg.math.at_risk_rate) : 0);
+  const prescribers = apiResults?.prescribers ?? (cfg ? Math.round(atRisk * cfg.math.prescriber_non_cdc_rate) : 0);
 
   // Step validation
   const validateStep1 = () => {
@@ -178,38 +178,43 @@ export default function CommunityPage() {
   };
 
   const handleSubmit = async () => {
-    if (!cfg || submitting) return;
+    if (submitting) return;
     setSubmitting(true);
     
     try {
-      // Minimum 800ms delay
       const apiBase = boot?.apiBase || (typeof window !== 'undefined' ? window.location.origin : '');
-      const [apiResponse] = await Promise.all([
-        fetch(`${apiBase}/api/submit/community`, {
-          method: 'POST',
-          headers: { 'Content-Type':'application/json' },
-          body: JSON.stringify({ 
-            form: { ...form, phone: cleanPhoneNumber(form.phone) }, 
-            computed: { 
-              members, 
-              withRx, 
-              withORx, 
-              atRisk, 
-              prescribers,
-              opioidRxRate: opioidRxRate,
-              countyRatePer100: countyRate,
-              usedCountyRate: countyRate !== null
-            }, 
-            referralToken: boot?.referralToken || null
-          })
-        }),
-        new Promise(resolve => setTimeout(resolve, 800))
-      ]);
-      await apiResponse.json();
-      setSubmitted(true);
+      
+      // Send ALL form data including county information
+      const response = await fetch(`${apiBase}/api/submit/community`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ 
+          form: { 
+            ...form, 
+            phone: cleanPhoneNumber(form.phone),
+            // Include all fields: state, county, city, population, etc.
+          }, 
+          referralToken: boot?.referralToken || null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.ok && data.results) {
+        // Store API results for display
+        setApiResults(data.results);
+        setSubmitted(true);
+      } else {
+        throw new Error(data.error || 'Invalid response from server');
+      }
     } catch (error) {
       console.error('Submit error:', error);
-      alert('There was an error submitting your form. Please try again.');
+      alert(`There was an error submitting your form: ${error instanceof Error ? error.message : 'Please try again.'}`);
     } finally {
       setSubmitting(false);
     }
@@ -549,10 +554,10 @@ export default function CommunityPage() {
           )}
           {submitted && (
             <div style={{ background:'#e8f5e9', padding:16, borderRadius:8, marginBottom:16 }}>
-              <h4 style={{ marginTop: 0 }}>✓ Thank you! We will follow up soon.</h4>
+              <h4 style={{ marginTop: 0, marginBottom: 0 }}>✓ Thank you! We will follow up soon.</h4>
             </div>
           )}
-          {!submitting && !submitted && cfg && (
+          {submitted && apiResults && (
             <>
               <div style={{ background:'#fafafa', padding:16, borderRadius:8 }}>
                 <h4 style={{ marginTop: 0 }}>Estimated Outcomes</h4>

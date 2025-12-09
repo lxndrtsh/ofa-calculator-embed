@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { formatPhoneNumber, cleanPhoneNumber, formatNumberWithCommas, cleanNumber } from '../utils/inputMask';
-import { Building2, User, FileText, Check, Users, Search, DollarSign, TrendingDown, Coins, PiggyBank } from 'lucide-react';
+import { Building2, User, FileText, Check, CheckCircle2, Circle } from 'lucide-react';
 import { US_STATES, getCountiesForState, getCountyRate, convertRateToOpioidRxRate } from '../utils/countyData';
 // Force dynamic rendering to avoid hydration issues in iframe
 export const dynamic = 'force-dynamic';
@@ -9,10 +9,10 @@ function postToParent(msg) { window.parent.postMessage(msg, '*'); }
 function useBoot() {
     const [boot, setBoot] = useState(null);
     useEffect(() => {
-        function onMsg(ev) { if (ev.data?.type === 'HPP_EMBED_BOOT')
+        function onMsg(ev) { if (ev.data?.type === 'OFA_CALCULATOR_BOOT')
             setBoot(ev.data.payload); }
         window.addEventListener('message', onMsg);
-        postToParent({ type: 'HPP_EMBED_READY' });
+        postToParent({ type: 'OFA_CALCULATOR_READY' });
         return () => window.removeEventListener('message', onMsg);
     }, []);
     return boot;
@@ -24,7 +24,7 @@ function useAutoResize(ref) {
         const ro = new ResizeObserver(entries => {
             for (const e of entries) {
                 const h = Math.ceil(e.contentRect.height) + 100; // Add 100px padding
-                postToParent({ type: 'HPP_EMBED_RESIZE', height: h });
+                postToParent({ type: 'OFA_CALCULATOR_RESIZE', height: h });
             }
         });
         ro.observe(ref.current);
@@ -43,6 +43,7 @@ export default function ImpactPage() {
     const [completedSteps, setCompletedSteps] = useState([]);
     const [form, setForm] = useState({
         employees: '',
+        planMembers: '',
         company: '',
         city: '',
         state: '',
@@ -53,9 +54,11 @@ export default function ImpactPage() {
         phone: '',
         title: ''
     });
+    const [showPlanMembers, setShowPlanMembers] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [counties, setCounties] = useState([]);
     const [countyRate, setCountyRate] = useState(null);
+    const [apiResults, setApiResults] = useState(null);
     useEffect(() => {
         setMounted(true);
     }, []);
@@ -116,28 +119,29 @@ export default function ImpactPage() {
             setCountyRate(null);
         }
     }, [form.state, form.county, boot]);
-    // Calculations - use cleaned number (without commas) for calculations
+    // Use API results if available, otherwise calculate for preview (before submit)
     const employees = Number(cleanNumber(form.employees || '0'));
-    const members = cfg ? Math.round(employees * cfg.math.avg_dependents_per_employee) : 0;
-    const withRx = cfg ? Math.round(members * cfg.math.rx_rate) : 0;
-    // Use county-specific opioid_rx_rate if available, otherwise use default
-    const opioidRxRate = countyRate !== null ? convertRateToOpioidRxRate(countyRate) : (cfg ? cfg.math.opioid_rx_rate : 0.2);
-    const withORx = cfg ? Math.round(withRx * opioidRxRate) : 0;
-    const atRisk = cfg ? Math.round(withORx * cfg.math.at_risk_rate) : 0;
-    const prescribers = cfg ? Math.round(atRisk * cfg.math.prescriber_non_cdc_rate) : 0;
-    // Financial calculations
-    const costPerMemberORx = 7500; // Hardcoded per requirements
-    const netCostPerMemberORx = 4000; // Hardcoded per requirements (TODO: move to config)
-    const avgCareManagedCost = 4500; // Hardcoded per requirements
-    const savingsPerMember = costPerMemberORx - avgCareManagedCost; // $3,000
-    const financialImpact = withORx * netCostPerMemberORx;
-    const targetedSavings = withORx * savingsPerMember;
-    const targetedSavingsPercent = financialImpact > 0 ? Math.round((targetedSavings / financialImpact) * 100) : 0;
+    const planMembersInput = Number(cleanNumber(form.planMembers || '0'));
+    // If planMembers is provided, use it; otherwise calculate from employees
+    const members = apiResults?.members ?? (planMembersInput > 0 ? planMembersInput : (cfg ? Math.round(employees * cfg.math.avg_dependents_per_employee) : 0));
+    const withRx = apiResults?.withRx ?? (cfg ? Math.round(members * cfg.math.rx_rate) : 0);
+    const opioidRxRate = apiResults?.opioidRxRate ?? (countyRate !== null ? convertRateToOpioidRxRate(countyRate) : (cfg ? cfg.math.opioid_rx_rate : 0.2));
+    const withORx = apiResults?.withORx ?? (cfg ? Math.round(withRx * opioidRxRate) : 0);
+    const atRisk = apiResults?.atRisk ?? (cfg ? Math.round(withORx * cfg.math.at_risk_rate) : 0);
+    const prescribers = apiResults?.prescribers ?? (cfg ? Math.round(atRisk * cfg.math.prescriber_non_cdc_rate) : 0);
+    // Financial calculations - use API results if available
+    const costPerMemberORx = apiResults?.costPerMemberORx ?? 7500;
+    const netCostPerMemberORx = apiResults?.netCostPerMemberORx ?? 4000;
+    const avgCareManagedCost = apiResults?.avgCareManagedCost ?? 4500;
+    const savingsPerMember = apiResults?.savingsPerMember ?? (costPerMemberORx - avgCareManagedCost);
+    const financialImpact = apiResults?.financialImpact ?? (withORx * netCostPerMemberORx);
+    const targetedSavings = apiResults?.targetedSavings ?? (withORx * savingsPerMember);
+    const targetedSavingsPercent = apiResults?.targetedSavingsPercent ?? (financialImpact > 0 ? Math.round((targetedSavings / financialImpact) * 100) : 0);
     // Auto-submit when reaching step 3 if not already submitted
     const submittedForStep3Ref = useRef(false);
     useEffect(() => {
-        if (step === 3 && cfg && !submitting && !submitted && !submittedForStep3Ref.current) {
-            console.log('Step 3 reached with cfg, triggering handleSubmit');
+        if (step === 3 && !submitting && !submitted && !submittedForStep3Ref.current) {
+            console.log('Step 3 reached, triggering handleSubmit');
             submittedForStep3Ref.current = true;
             handleSubmit();
         }
@@ -145,11 +149,16 @@ export default function ImpactPage() {
         if (step !== 3) {
             submittedForStep3Ref.current = false;
         }
-    }, [step, cfg, submitting, submitted]);
+    }, [step, submitting, submitted]);
     // Step validation
     const validateStep1 = () => {
-        const cleaned = cleanNumber(form.employees || '');
-        return cleaned && Number(cleaned) > 0 && form.company.trim() !== '';
+        const employeesCleaned = cleanNumber(form.employees || '');
+        const planMembersCleaned = cleanNumber(form.planMembers || '');
+        const hasEmployees = employeesCleaned && Number(employeesCleaned) > 0;
+        const hasPlanMembers = planMembersCleaned && Number(planMembersCleaned) > 0;
+        // Validate based on which field is currently shown
+        const hasRequiredField = showPlanMembers ? hasPlanMembers : hasEmployees;
+        return hasRequiredField && form.company.trim() !== '';
     };
     const validateStep2 = () => {
         return form.firstName.trim() !== '' &&
@@ -164,6 +173,10 @@ export default function ImpactPage() {
     const handleEmployeesChange = (value) => {
         const formatted = formatNumberWithCommas(value);
         setForm({ ...form, employees: formatted });
+    };
+    const handlePlanMembersChange = (value) => {
+        const formatted = formatNumberWithCommas(value);
+        setForm({ ...form, planMembers: formatted });
     };
     const handleNext = () => {
         if (step === 1 && validateStep1()) {
@@ -188,7 +201,8 @@ export default function ImpactPage() {
     };
     const fillFakeData = () => {
         setForm({
-            employees: formatNumberWithCommas('25000'),
+            employees: '',
+            planMembers: formatNumberWithCommas('25000'),
             company: 'Palm Beach Employee Health Plan',
             city: 'Palm Beach',
             state: 'FL',
@@ -199,6 +213,7 @@ export default function ImpactPage() {
             phone: '(555) 123-4567',
             title: 'Director of Benefits'
         });
+        setShowPlanMembers(true); // Set toggle to show plan members since we're filling planMembers
         setCompletedSteps([1, 2]);
     };
     const jumpToStep = (stepNum) => {
@@ -231,43 +246,46 @@ export default function ImpactPage() {
         }
     };
     const handleSubmit = async () => {
-        if (!cfg || submitting) {
-            console.log('handleSubmit blocked:', { cfg: !!cfg, submitting });
+        if (submitting) {
+            console.log('handleSubmit blocked: already submitting');
             return;
         }
         const apiBase = boot?.apiBase || (typeof window !== 'undefined' ? window.location.origin : '');
-        console.log('handleSubmit called with:', { apiBase, cfg: !!cfg, submitting });
+        console.log('handleSubmit called with:', { apiBase, submitting });
         setSubmitting(true);
         try {
-            // Minimum 800ms delay
-            const [apiResponse] = await Promise.all([
-                fetch(`${apiBase}/api/submit/impact`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        form: { ...form, phone: cleanPhoneNumber(form.phone), employees: cleanNumber(form.employees) },
-                        computed: {
-                            members,
-                            withRx,
-                            withORx,
-                            atRisk,
-                            prescribers,
-                            avgClaim: cfg.math.avg_med_claim_usd,
-                            opioidRxRate: opioidRxRate,
-                            countyRatePer100: countyRate,
-                            usedCountyRate: countyRate !== null
-                        },
-                        referralToken: boot?.referralToken || null
-                    })
-                }),
-                new Promise(resolve => setTimeout(resolve, 800))
-            ]);
-            await apiResponse.json();
-            setSubmitted(true);
+            // Send ALL form data including county information
+            const response = await fetch(`${apiBase}/api/submit/impact`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    form: {
+                        ...form,
+                        phone: cleanPhoneNumber(form.phone),
+                        employees: cleanNumber(form.employees),
+                        planMembers: cleanNumber(form.planMembers),
+                        // Include all fields: state, county, city, etc.
+                    },
+                    referralToken: boot?.referralToken || null
+                })
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
+            const data = await response.json();
+            if (data.ok && data.results) {
+                // Store API results for display
+                setApiResults(data.results);
+                setSubmitted(true);
+            }
+            else {
+                throw new Error(data.error || 'Invalid response from server');
+            }
         }
         catch (error) {
             console.error('Submit error:', error);
-            alert('There was an error submitting your form. Please try again.');
+            alert(`There was an error submitting your form: ${error instanceof Error ? error.message : 'Please try again.'}`);
         }
         finally {
             setSubmitting(false);
@@ -459,9 +477,59 @@ export default function ImpactPage() {
             </p>
           </div>
           <label>
-            <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px' }}>Number of Employees *</span>
-            <input type="text" inputMode="numeric" value={form.employees} onChange={e => handleEmployeesChange(e.target.value)} placeholder="e.g., 10,000" required/>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontSize: '1.125rem', fontWeight: '700', display: 'block' }}>
+                {showPlanMembers ? 'Number of Plan Members' : 'Number of Employees'}
+              </span>
+              <button type="button" onClick={() => {
+                setShowPlanMembers(!showPlanMembers);
+                // Clear the opposite field when toggling
+                if (showPlanMembers) {
+                    setForm({ ...form, planMembers: '' });
+                }
+                else {
+                    setForm({ ...form, employees: '' });
+                }
+            }} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: showPlanMembers ? '#3b82f6' : '#f3f4f6',
+                border: showPlanMembers ? '2px solid #3b82f6' : '2px solid #e5e7eb',
+                color: showPlanMembers ? '#ffffff' : '#6b7280',
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: '600',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                fontFamily: 'Lato, sans-serif',
+                transition: 'all 0.2s',
+                boxShadow: showPlanMembers ? '0 2px 4px rgba(59, 130, 246, 0.2)' : 'none'
+            }} onMouseEnter={(e) => {
+                if (!showPlanMembers) {
+                    e.currentTarget.style.background = '#e5e7eb';
+                    e.currentTarget.style.borderColor = '#d1d5db';
+                }
+            }} onMouseLeave={(e) => {
+                if (!showPlanMembers) {
+                    e.currentTarget.style.background = '#f3f4f6';
+                    e.currentTarget.style.borderColor = '#e5e7eb';
+                }
+            }}>
+                {showPlanMembers ? <CheckCircle2 size={16}/> : <Circle size={16}/>}
+                <span>Know your plan members?</span>
+              </button>
+            </div>
+            <span style={{ fontSize: '0.875rem', color: '#666', marginBottom: '4px', display: 'block' }}>
+              {showPlanMembers
+                ? 'If you know your plan member count, we can be more accurate'
+                : 'Enter the number of employees you have for a general estimate'}
+            </span>
+            {showPlanMembers ? (<input type="text" inputMode="numeric" value={form.planMembers} onChange={e => handlePlanMembersChange(e.target.value)} placeholder="e.g., 25,000"/>) : (<input type="text" inputMode="numeric" value={form.employees} onChange={e => handleEmployeesChange(e.target.value)} placeholder="e.g., 10,000"/>)}
           </label>
+          <div style={{ fontSize: '0.875rem', color: '#666', marginTop: '-8px' }}>
+            * {showPlanMembers ? 'Plan members' : 'Employees'} is required
+          </div>
           <label>
             <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px' }}>Business/Organization Name *</span>
             <input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} required/>
@@ -564,126 +632,75 @@ export default function ImpactPage() {
           {submitted && (<div style={{ background: '#e8f5e9', padding: 16, borderRadius: 8, marginBottom: 16 }}>
               <h4 style={{ marginTop: 0 }}>✓ Thank you! We will follow up soon.</h4>
             </div>)}
-          {!cfg && !submitting && (<div style={{ textAlign: 'center', padding: '40px 20px' }}>
-              <div className="spinner" style={{
-                    width: '48px',
-                    height: '48px',
-                    margin: '0 auto 20px',
-                    border: '4px solid #e0e0e0',
-                    borderTop: '4px solid #22c55e',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite'
-                }}/>
-              <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '12px' }}>
-                Loading configuration...
+          {submitted && apiResults && (<>
+              {/* Centered OIA Image */}
+              <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                <img src="/images/OIA.png" alt="OIA" style={{ maxWidth: '100%', height: 'auto' }}/>
               </div>
-              <div style={{ color: '#666', fontSize: '14px' }}>
-                Please wait while we prepare your report.
+
+              {/* Results List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
+                <div style={{ fontSize: '1rem', color: '#333' }}>
+                  <strong>Plan Members:</strong> {members.toLocaleString()}
+                </div>
+                <div style={{ fontSize: '1rem', color: '#333' }}>
+                  <strong>Estimated Members with Rx:</strong> {withRx.toLocaleString()}
+                </div>
+                <div style={{ fontSize: '1rem', color: '#333' }}>
+                  <strong>Estimated Members with Opioid Rx:</strong> {withORx.toLocaleString()}
+                </div>
+                <div style={{ fontSize: '1rem', color: '#333' }}>
+                  <strong>Identified At-Risk Members:</strong> {atRisk.toLocaleString()}
+                </div>
+                <div style={{ fontSize: '1rem', color: '#333' }}>
+                  <strong>Prescribers Identified:</strong> {prescribers.toLocaleString()}
+                </div>
+                <div style={{ fontSize: '1rem', color: '#333' }}>
+                  <strong>Cost/Member with Rx:</strong> ${costPerMemberORx.toLocaleString()}
+                </div>
+                <div style={{ fontSize: '1rem', color: '#333' }}>
+                  <strong>Net Cost/Member/Orx:</strong> ${netCostPerMemberORx.toLocaleString()}
+                </div>
+                <div style={{ fontSize: '1rem', color: '#333' }}>
+                  <strong>Avg Care Managed Claim Cost:</strong> ${avgCareManagedCost.toLocaleString()} <span style={{ color: '#666' }}>(${savingsPerMember.toLocaleString()} savings)</span>
+                </div>
+                <div style={{ fontSize: '1rem', color: '#333' }}>
+                  <strong>Average Medical Claim per Member:</strong> ${(apiResults?.avgClaim || 4000).toLocaleString()}
+                </div>
               </div>
-            </div>)}
-          {submitted && cfg && (<>
-              {/* Results Table */}
+
+              {/* Final Values - Highlighted */}
               <div style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    marginTop: '24px',
-                    border: '1px solid #e0e0e0',
-                    borderRadius: '8px',
-                    padding: '16px',
-                    background: '#fafafa'
+                    gap: '16px',
+                    marginTop: '32px',
+                    marginBottom: '32px',
+                    padding: '24px',
+                    background: '#f0f9ff',
+                    border: '2px solid #3b82f6',
+                    borderRadius: '8px'
                 }}>
-                {/* Row 1: 3 equal columns (33% each) */}
-                <div style={{ display: 'flex', borderBottom: '1px solid #e0e0e0', paddingBottom: '16px', marginBottom: '16px' }}>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '16px', borderRight: '1px solid #e0e0e0' }}>
-                    <div style={{ fontSize: '0.875rem', color: '#333', fontWeight: '400' }}>Plan Members</div>
-                    <div style={{ fontSize: '1.5rem', color: '#22c55e', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Users size={24} color="#22c55e"/>
-                      {members.toLocaleString()}
-                    </div>
-                  </div>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '16px', paddingRight: '16px', borderRight: '1px solid #e0e0e0' }}>
-                    <div style={{ fontSize: '0.875rem', color: '#333', fontWeight: '400' }}>Estimated Members with Rx</div>
-                    <div style={{ fontSize: '1.5rem', color: '#22c55e', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Search size={24} color="#22c55e"/>
-                      {withRx.toLocaleString()}
-                    </div>
-                  </div>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '16px' }}>
-                    <div style={{ fontSize: '0.875rem', color: '#333', fontWeight: '400' }}>Estimated Members with Opioid Rx</div>
-                    <div style={{ fontSize: '1.5rem', color: '#22c55e', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Search size={24} color="#22c55e"/>
-                      {withORx.toLocaleString()}
-                    </div>
-                  </div>
+                <div style={{ fontSize: '1.25rem', color: '#333', fontWeight: '700' }}>
+                  <strong>Financial Impact of Opioids:</strong> <span style={{ color: '#3b82f6' }}>${financialImpact.toLocaleString()}</span>
                 </div>
-
-                {/* Row 1.5: At Risk and Prescribers */}
-                <div style={{ display: 'flex', borderBottom: '1px solid #e0e0e0', paddingBottom: '16px', marginBottom: '16px', gap: '16px' }}>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '16px', borderRight: '1px solid #e0e0e0' }}>
-                    <div style={{ fontSize: '0.875rem', color: '#333', fontWeight: '400' }}>Identified At-Risk Members</div>
-                    <div style={{ fontSize: '1.5rem', color: '#22c55e', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Users size={24} color="#22c55e"/>
-                      {atRisk.toLocaleString()}
-                    </div>
-                  </div>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '16px' }}>
-                    <div style={{ fontSize: '0.875rem', color: '#333', fontWeight: '400' }}>Prescribers Identified</div>
-                    <div style={{ fontSize: '1.5rem', color: '#22c55e', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Search size={24} color="#22c55e"/>
-                      {prescribers.toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Row 2: 2 columns (66% / 33%) */}
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  {/* Column 1 (66%): Sub-rows */}
-                  <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '16px', borderRight: '1px solid #e0e0e0', paddingRight: '16px' }}>
-                    {/* Sub-Row A: 2 columns (50% each) */}
-                    <div style={{ display: 'flex', borderBottom: '1px solid #e0e0e0', paddingBottom: '16px', gap: '16px' }}>
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '16px', borderRight: '1px solid #e0e0e0' }}>
-                        <div style={{ fontSize: '0.875rem', color: '#333', fontWeight: '400' }}>Cost/Member with Rx</div>
-                        <div style={{ fontSize: '1.5rem', color: '#22c55e', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <DollarSign size={24} color="#22c55e"/>
-                          ${costPerMemberORx.toLocaleString()}
-                        </div>
-                      </div>
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '16px' }}>
-                        <div style={{ fontSize: '0.875rem', color: '#333', fontWeight: '400' }}>Net Cost/Member/Orx</div>
-                        <div style={{ fontSize: '1.5rem', color: '#22c55e', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <TrendingDown size={24} color="#22c55e"/>
-                          ${netCostPerMemberORx.toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                    {/* Sub-Row B: 1 column (100% width) */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ fontSize: '0.875rem', color: '#333', fontWeight: '400' }}>Avg Care Managed Claim Cost</div>
-                      <div style={{ fontSize: '1.5rem', color: '#22c55e', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <PiggyBank size={24} color="#22c55e"/>
-                        ${avgCareManagedCost.toLocaleString()} <span style={{ fontSize: '1rem', color: '#333', fontWeight: '400' }}>(${savingsPerMember.toLocaleString()} savings)</span>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Column 2 (33%) */}
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '16px' }}>
-                    <div style={{ fontSize: '0.875rem', color: '#333', fontWeight: '400' }}>Average Medical Claim per Member</div>
-                    <div style={{ fontSize: '1.5rem', color: '#22c55e', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Coins size={24} color="#22c55e"/>
-                      ${cfg.math.avg_med_claim_usd.toLocaleString()}
-                    </div>
-                  </div>
+                <div style={{ fontSize: '1.25rem', color: '#333', fontWeight: '700' }}>
+                  <strong>Targeted Savings:</strong> <span style={{ color: '#3b82f6' }}>${targetedSavings.toLocaleString()} ({targetedSavingsPercent}%)</span>
                 </div>
               </div>
 
-              {/* Summary Headings */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '32px' }}>
-                <div style={{ fontSize: '1.5rem', color: '#333', fontWeight: '700' }}>
-                  Financial Impact of Opioids: <span style={{ color: '#22c55e' }}>${financialImpact.toLocaleString()}</span>
-                </div>
-                <div style={{ fontSize: '1.5rem', color: '#333', fontWeight: '700' }}>
-                  Targeted Savings: <span style={{ color: '#22c55e' }}>${targetedSavings.toLocaleString()} ({targetedSavingsPercent}%)</span>
-                </div>
+              {/* OFA Button */}
+              <div style={{ textAlign: 'center', marginTop: '32px' }}>
+                <button type="button" onClick={() => {
+                    // Add any button action here if needed
+                }} style={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0
+                }}>
+                  <img src="/images/OFA-dark.png" alt="OFA" style={{ maxWidth: '100%', height: 'auto' }}/>
+                </button>
               </div>
 
               <div style={{ background: '#fff3cd', padding: 16, borderRadius: 8, marginTop: '24px' }}>

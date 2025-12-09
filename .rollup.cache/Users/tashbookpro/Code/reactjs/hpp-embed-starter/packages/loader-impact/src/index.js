@@ -9,7 +9,7 @@
         if (typeof elOrId === 'string') {
             const el = document.getElementById(elOrId);
             if (!el)
-                throw new Error(`HPPEmbed: container #${elOrId} not found`);
+                throw new Error(`OFACalculator: container #${elOrId} not found`);
             return el;
         }
         return elOrId;
@@ -23,14 +23,14 @@
         const container = getEl(elOrId);
         // Prevent duplicate initialization
         if (container.querySelector('iframe')) {
-            console.warn('HPPEmbed: container already initialized, skipping');
+            console.warn('OFACalculator: container already initialized, skipping');
             return;
         }
         const wrapper = document.createElement('div');
         wrapper.style.position = 'relative';
         wrapper.style.width = '100%';
         const iframe = document.createElement('iframe');
-        iframe.title = 'HPP Widget';
+        iframe.title = 'OFA Calculator Widget';
         iframe.allow = 'clipboard-write';
         iframe.loading = 'lazy';
         iframe.style.width = '1px';
@@ -48,9 +48,9 @@
             const allowed = new URL(opts.iframeBase).origin;
             if (ev.origin !== allowed)
                 return;
-            if ((ev.data && ev.data.type) === 'HPP_EMBED_READY') {
+            if ((ev.data && ev.data.type) === 'OFA_CALCULATOR_READY') {
                 iframe.contentWindow?.postMessage({
-                    type: 'HPP_EMBED_BOOT',
+                    type: 'OFA_CALCULATOR_BOOT',
                     payload: {
                         apiBase: opts.apiBase,
                         configVersion: String(opts.configVersion),
@@ -59,7 +59,7 @@
                     }
                 }, allowed);
             }
-            if ((ev.data && ev.data.type) === 'HPP_EMBED_RESIZE') {
+            if ((ev.data && ev.data.type) === 'OFA_CALCULATOR_RESIZE') {
                 const h = Number(ev.data.height || 0);
                 if (h > 0)
                     iframe.style.height = `${h}px`;
@@ -67,7 +67,7 @@
         }
         window.addEventListener('message', onMessage);
     }
-    window.HPPEmbed = { init };
+    window.OFACalculator = { init };
 })();
 export {};
 //# sourceMappingURL=index.js.map

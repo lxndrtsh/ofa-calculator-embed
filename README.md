@@ -1,4 +1,4 @@
-# HPP Embed Starter (Vercel)
+# OFA Calculator Starter (Vercel)
 
 Next.js (App Router) starter that hosts:
 - **Embed iframe apps** at `/embed/impact` and `/embed/community`
@@ -30,9 +30,9 @@ npm run build
 
 ```html
 <script src="https://YOUR_DOMAIN/cdn/leadcalc-impact.min.js"></script>
-<div id="hpp-impact"></div>
+<div id="ofa-impact"></div>
 <script>
-  HPPEmbed.init('hpp-impact', {
+  OFACalculator.init('ofa-impact', {
     apiBase: 'https://YOUR_DOMAIN',
     iframeBase: 'https://YOUR_DOMAIN',
     configVersion: '1.0.0',

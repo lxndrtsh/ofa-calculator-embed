@@ -20,7 +20,7 @@ export default function DemoHost() {
     if (existingScript) {
       // Script already loaded, just init
       // @ts-ignore
-      window.HPPEmbed?.init('impact-mount', {
+      window.OFACalculator?.init('impact-mount', {
         apiBase: window.location.origin,
         iframeBase: window.location.origin,
         configVersion: 'dev',
@@ -34,7 +34,7 @@ export default function DemoHost() {
     s.src = '/cdn/leadcalc-impact.min.js';
     s.onload = () => {
       // @ts-ignore
-      window.HPPEmbed?.init('impact-mount', {
+      window.OFACalculator?.init('impact-mount', {
         apiBase: window.location.origin,
         iframeBase: window.location.origin,
         configVersion: 'dev',

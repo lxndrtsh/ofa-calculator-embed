@@ -8,7 +8,7 @@ type Options = {
 
 declare global {
   interface Window {
-    HPPEmbed: {
+    OFACalculator: {
       init: (elOrId: HTMLElement|string, opts: Options) => void;
     };
   }
@@ -24,7 +24,7 @@ declare global {
   function getEl(elOrId: HTMLElement|string): HTMLElement {
     if (typeof elOrId === 'string') {
       const el = document.getElementById(elOrId);
-      if (!el) throw new Error(`HPPEmbed: container #${elOrId} not found`);
+      if (!el) throw new Error(`OFACalculator: container #${elOrId} not found`);
       return el;
     }
     return elOrId;
@@ -40,7 +40,7 @@ declare global {
     wrapper.style.position = 'relative';
     wrapper.style.width = '100%';
     const iframe = document.createElement('iframe');
-    iframe.title = 'HPP Widget';
+    iframe.title = 'OFA Calculator Widget';
     iframe.allow = 'clipboard-write';
     iframe.loading = 'lazy';
     iframe.style.width = '1px';
@@ -57,9 +57,9 @@ declare global {
     function onMessage(ev: MessageEvent) {
       const allowed = new URL(opts.iframeBase!).origin;
       if (ev.origin !== allowed) return;
-      if ((ev.data && ev.data.type) === 'HPP_EMBED_READY') {
+      if ((ev.data && ev.data.type) === 'OFA_CALCULATOR_READY') {
         iframe.contentWindow?.postMessage({
-          type: 'HPP_EMBED_BOOT',
+          type: 'OFA_CALCULATOR_BOOT',
           payload: {
             apiBase: opts.apiBase,
             configVersion: String(opts.configVersion),
@@ -68,14 +68,14 @@ declare global {
           }
         }, allowed);
       }
-      if ((ev.data && ev.data.type) === 'HPP_EMBED_RESIZE') {
+      if ((ev.data && ev.data.type) === 'OFA_CALCULATOR_RESIZE') {
         const h = Number(ev.data.height || 0);
         if (h > 0) iframe.style.height = `${h}px`;
       }
     }
     window.addEventListener('message', onMessage);
   }
-  window.HPPEmbed = { init };
+  window.OFACalculator = { init };
 })();
 
 // Make this file a module so global augmentation works

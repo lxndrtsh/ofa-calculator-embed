@@ -1,4 +1,4 @@
-export const metadata = { title: 'HPP Embed Host' };
+export const metadata = { title: 'OFA Calculator Host' };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
