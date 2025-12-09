@@ -18,7 +18,8 @@ export default {
       tsconfig: path.join(__dirname, '../../tsconfig.json'),
       declaration: false,
       declarationMap: false,
-      exclude: ['**/app/**', '**/node_modules/**']
+      exclude: ['**/app/**', '**/node_modules/**'],
+      rootDir: path.join(__dirname, 'src')
     }),
     terser()
   ]
