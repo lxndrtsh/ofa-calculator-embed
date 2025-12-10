@@ -15,10 +15,9 @@ export default {
   },
   plugins: [
     typescript({
-      tsconfig: path.join(__dirname, '../../tsconfig.json'),
+      tsconfig: path.join(__dirname, 'tsconfig.json'),
       declaration: false,
-      declarationMap: false,
-      exclude: ['**/app/**', '**/node_modules/**']
+      declarationMap: false
     }),
     terser()
   ]
