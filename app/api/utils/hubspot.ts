@@ -1,4 +1,5 @@
 import * as hubspot from '@hubspot/api-client';
+import { FilterOperatorEnum } from '@hubspot/api-client/lib/codegen/crm/contacts/models/Filter';
 
 interface HubSpotContactData {
   email: string;
@@ -102,7 +103,7 @@ export async function sendToHubSpot(data: HubSpotContactData): Promise<{ success
             filters: [
               {
                 propertyName: 'email',
-                operator: 'EQ' as const,
+                operator: FilterOperatorEnum.Eq,
                 value: data.email,
               },
             ],
@@ -110,7 +111,7 @@ export async function sendToHubSpot(data: HubSpotContactData): Promise<{ success
         ],
         properties: ['email'],
         limit: 1,
-        after: 0,
+        after: "0",
       };
 
       const searchResponse = await hubspotClient.crm.contacts.searchApi.doSearch(searchRequest);
