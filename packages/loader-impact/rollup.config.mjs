@@ -17,7 +17,18 @@ export default {
     typescript({
       tsconfig: path.join(__dirname, 'tsconfig.json'),
       declaration: false,
-      declarationMap: false
+      declarationMap: false,
+      rootDir: path.join(__dirname, 'src'),
+      compilerOptions: {
+        target: 'ES2021',
+        module: 'ESNext',
+        moduleResolution: 'node',
+        lib: ['DOM', 'ES2021'],
+        strict: true,
+        esModuleInterop: true,
+        skipLibCheck: true,
+        noEmit: false
+      }
     }),
     terser()
   ]
