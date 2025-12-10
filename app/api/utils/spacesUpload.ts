@@ -79,7 +79,13 @@ export async function uploadToSpaces(
   endpoint = endpoint.replace(/^https?:\/\//, '').trim();
   
   const cdnDomain = process.env.DO_SPACES_CDN_DOMAIN; // Optional: if you have a CDN domain
-  const baseUrl = cdnDomain || `https://${bucket}.${endpoint}`;
+  let baseUrl = cdnDomain || `https://${bucket}.${endpoint}`;
+  
+  // Ensure baseUrl has a protocol (default to https://)
+  if (!baseUrl.match(/^https?:\/\//)) {
+    baseUrl = `https://${baseUrl}`;
+  }
+  
   const url = `${baseUrl}/${key}`;
 
   return { url, key };

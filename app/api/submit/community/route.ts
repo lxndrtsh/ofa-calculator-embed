@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { getWebsiteUrl } from '../../utils/db';
+import { sendToHubSpot } from '../../utils/hubspot';
 
 interface CommunityFormData {
   city: string;
@@ -78,19 +79,6 @@ async function getCountyRate(state: string, county: string): Promise<number | nu
   return match ? match.RATE_PER_100 : null;
 }
 
-// Stub for HubSpot API call
-async function sendToHubSpot(formData: CommunityFormData, calculatedResults: any) {
-  // TODO: Implement HubSpot API integration
-  // This will send contact data and custom properties to HubSpot
-  console.log('HubSpot stub - would send:', {
-    email: formData.email,
-    firstName: formData.firstName,
-    lastName: formData.lastName,
-    company: formData.company,
-    // ... all form fields and calculated results
-  });
-  return { success: true, contactId: null };
-}
 
 export async function POST(req: Request) {
   try {
@@ -126,8 +114,33 @@ export async function POST(req: Request) {
       usedCountyRate: countyRate !== null,
     };
 
-    // Send to HubSpot (stub for now)
-    await sendToHubSpot(form, calculatedResults);
+    // Send to HubSpot
+    try {
+      const hubspotResult = await sendToHubSpot({
+        email: form.email,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        phone: form.phone,
+        company: form.company,
+        city: form.city,
+        state: form.state,
+        county: form.county,
+        title: form.title,
+        formType: 'community',
+        population: form.population,
+        calculatedResults,
+        pdfUrl: null, // Community form doesn't generate PDFs yet
+      });
+      
+      if (hubspotResult.success) {
+        console.log(`HubSpot contact ${hubspotResult.contactId ? `(${hubspotResult.contactId})` : ''} processed successfully`);
+      } else {
+        console.error('HubSpot submission failed:', hubspotResult.error);
+      }
+    } catch (hubspotError) {
+      // Log error but don't fail the submission if HubSpot call fails
+      console.error('Failed to send to HubSpot:', hubspotError);
+    }
 
     // TODO: Add Referral Tool integration here
 

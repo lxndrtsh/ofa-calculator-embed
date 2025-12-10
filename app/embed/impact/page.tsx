@@ -585,6 +585,7 @@ export default function ImpactPage() {
                 value={form.planMembers} 
                 onChange={e=>handlePlanMembersChange(e.target.value)} 
                 placeholder="e.g., 25,000"
+                autoComplete="off"
               />
             ) : (
               <input 
@@ -593,6 +594,7 @@ export default function ImpactPage() {
                 value={form.employees} 
                 onChange={e=>handleEmployeesChange(e.target.value)} 
                 placeholder="e.g., 10,000"
+                autoComplete="off"
               />
             )}
           </label>
@@ -605,6 +607,7 @@ export default function ImpactPage() {
               value={form.company} 
               onChange={e=>setForm({...form, company:e.target.value})} 
               required
+              autoComplete="organization"
             />
           </label>
           <div>
@@ -616,6 +619,7 @@ export default function ImpactPage() {
                   value={form.city} 
                   onChange={e=>setForm({...form, city:e.target.value})}
                   placeholder="City"
+                  autoComplete="address-level2"
                 />
               </label>
               <label style={{ flex: 1 }}>
@@ -628,6 +632,7 @@ export default function ImpactPage() {
                     console.log('State changed to:', newState, 'boot:', !!boot, 'apiBase:', apiBase);
                     setForm({...form, state:newState, county:''});
                   }}
+                  autoComplete="address-level1"
                   style={{ padding: '12px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '1rem', fontFamily: 'Lato, sans-serif', width: '100%' }}
                 >
                   <option value="">Select State</option>
@@ -680,6 +685,7 @@ export default function ImpactPage() {
               value={form.firstName} 
               onChange={e=>setForm({...form, firstName:e.target.value})} 
               required
+              autoComplete="given-name"
             />
           </label>
           <label>
@@ -688,6 +694,7 @@ export default function ImpactPage() {
               value={form.lastName} 
               onChange={e=>setForm({...form, lastName:e.target.value})} 
               required
+              autoComplete="family-name"
             />
           </label>
           <label>
@@ -697,6 +704,7 @@ export default function ImpactPage() {
               value={form.email} 
               onChange={e=>setForm({...form, email:e.target.value})} 
               required
+              autoComplete="email"
             />
           </label>
           <label>
@@ -707,6 +715,7 @@ export default function ImpactPage() {
               onChange={e=>handlePhoneChange(e.target.value)}
               placeholder="(123) 456-7890"
               maxLength={14}
+              autoComplete="tel"
             />
           </label>
           <label>
@@ -714,6 +723,7 @@ export default function ImpactPage() {
             <input 
               value={form.title} 
               onChange={e=>setForm({...form, title:e.target.value})}
+              autoComplete="organization-title"
             />
           </label>
         </div>
