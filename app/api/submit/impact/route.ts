@@ -199,7 +199,7 @@ export async function POST(req: Request) {
     const employees = Number(form.employees || '0');
     const planMembersInput = Number(form.planMembers || '0');
     // If planMembers is provided, use it directly; otherwise calculate from employees
-    const members = planMembersInput > 0 ? planMembersInput : Math.round(employees * config.math.avg_dependents_per_employee);
+    const members = planMembersInput > 0 ? planMembersInput : Math.round(employees * (config.math.avg_dependents_per_employee ?? 2.5));
     const withRx = Math.round(members * config.math.rx_rate);
     
     // Use county-specific opioid_rx_rate if available, otherwise use default
@@ -272,8 +272,8 @@ export async function POST(req: Request) {
           const communityPrescribers = Math.round(communityAtRisk * communityConfig.math.prescriber_non_cdc_rate);
           
           // Calculate milestones: Year 2 (24% decrease) and Year 3 (35% decrease) in ORx/100 rate
-          const year2OrxPer100 = communityOrxPer100 * (1 - communityConfig.math.year2_decrease_rate);
-          const year3OrxPer100 = communityOrxPer100 * (1 - communityConfig.math.year3_decrease_rate);
+          const year2OrxPer100 = communityOrxPer100 * (1 - (communityConfig.math.year2_decrease_rate ?? 0.24));
+          const year3OrxPer100 = communityOrxPer100 * (1 - (communityConfig.math.year3_decrease_rate ?? 0.35));
           
           const year2OrxRate = year2OrxPer100 / 100;
           const year3OrxRate = year3OrxPer100 / 100;
