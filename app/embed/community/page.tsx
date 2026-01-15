@@ -6,7 +6,7 @@ import { US_STATES, getCountiesForState, getCountyRate, convertRateToOpioidRxRat
 
 // Force dynamic rendering to avoid hydration issues in iframe
 export const dynamic = 'force-dynamic';
-type Boot = { apiBase: string; configVersion: string; theme: 'light'|'dark'|string; referralToken: string|null; };
+type Boot = { apiBase: string; configVersion: string; theme: 'light'|'dark'|string; referralToken: string|null; hubspotIntegration?: boolean; };
 function postToParent(msg: any) { window.parent.postMessage(msg, '*'); }
 function useBoot(): Boot|null {
   const [boot, setBoot] = useState<Boot|null>(null);
@@ -55,10 +55,12 @@ export default function CommunityPage() {
     title: '' 
   });
   const [mounted, setMounted] = useState(false);
-  const [lookupLoading, setLookupLoading] = useState(false);
   const [counties, setCounties] = useState<Array<{ value: string; label: string }>>([]);
   const [countyRate, setCountyRate] = useState<number | null>(null);
   const [apiResults, setApiResults] = useState<any>(null);
+  const [countyPopulation, setCountyPopulation] = useState<number | null>(null);
+  const [populationFound, setPopulationFound] = useState(false);
+  const [manualPopulationEntry, setManualPopulationEntry] = useState(false);
   
   useEffect(() => {
     setMounted(true);
@@ -99,15 +101,58 @@ export default function CommunityPage() {
     }
   }, [form.state, boot]);
 
-  // Load county rate when state and county change
+  // Load county rate and population when state and county change
   useEffect(() => {
     const apiBase = boot?.apiBase || (typeof window !== 'undefined' ? window.location.origin : '');
     if (form.state && form.county) {
-      getCountyRate(form.state, form.county, apiBase).then(rate => {
-        setCountyRate(rate);
-      });
+      if (form.county === 'County Not Listed') {
+        // For "County Not Listed", show input field directly
+        setCountyRate(null);
+        setCountyPopulation(null);
+        setPopulationFound(false);
+        setManualPopulationEntry(true);
+        // Don't clear population - let user enter it
+      } else {
+        // Load county rate
+        getCountyRate(form.state, form.county, apiBase).then(rate => {
+          setCountyRate(rate);
+        });
+        
+        // Reset manual entry mode when county changes
+        setManualPopulationEntry(false);
+        
+        // Auto-populate population from county data
+        fetch(`${apiBase}/api/lookup/population?state=${encodeURIComponent(form.state)}&county=${encodeURIComponent(form.county)}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data?.population) {
+              setCountyPopulation(data.population);
+              setPopulationFound(true);
+              // Only auto-populate if not in manual mode
+              if (!manualPopulationEntry) {
+                setForm(f => ({ ...f, population: String(data.population) }));
+              }
+            } else {
+              setCountyPopulation(null);
+              setPopulationFound(false);
+              // If no data found, show input field
+              setManualPopulationEntry(true);
+            }
+          })
+          .catch(error => {
+            console.error('Population lookup error:', error);
+            setCountyPopulation(null);
+            setPopulationFound(false);
+            setManualPopulationEntry(true);
+          });
+      }
     } else {
       setCountyRate(null);
+      setCountyPopulation(null);
+      setPopulationFound(false);
+      setManualPopulationEntry(false);
+      // Clear population when county is cleared
+      setForm(f => ({ ...f, population: '' }));
     }
   }, [form.state, form.county, boot]);
 
@@ -115,9 +160,56 @@ export default function CommunityPage() {
   const pop = Number(form.population || 0);
   const members = apiResults?.members ?? pop;
   const withRx = apiResults?.withRx ?? (cfg ? Math.round(members * cfg.math.rx_rate) : 0);
-  const opioidRxRate = apiResults?.opioidRxRate ?? (countyRate !== null ? convertRateToOpioidRxRate(countyRate) : (cfg ? cfg.math.opioid_rx_rate : 0.2));
-  const withORx = apiResults?.withORx ?? (cfg ? Math.round(withRx * opioidRxRate) : 0);
+  
+  // Calculate residents with opioid Rx
+  // If county ORx/100 rate is available, use it directly on population
+  // Otherwise, use default: 20% of residents with Rx
+  let withORx: number;
+  let orxPer100: number;
+  let usedCountyRate: boolean;
+  
+  if (apiResults?.withORx !== undefined) {
+    // Use API results if available
+    withORx = apiResults.withORx;
+    orxPer100 = apiResults.orxPer100 ?? (apiResults.opioidRxRate ? apiResults.opioidRxRate * 100 : 10.0);
+    usedCountyRate = apiResults.usedCountyRate ?? false;
+  } else if (countyRate !== null && cfg) {
+    // Use county-specific ORx/100 rate (per 100 population)
+    orxPer100 = countyRate;
+    const opioidRxRate = orxPer100 / 100; // Convert to decimal (e.g., 10.0 -> 0.10)
+    withORx = Math.round(members * opioidRxRate);
+    usedCountyRate = true;
+  } else if (cfg) {
+    // Default: 20% of residents with Rx
+    const opioidRxRate = cfg.math.opioid_rx_rate; // 0.2 (20%)
+    withORx = Math.round(withRx * opioidRxRate);
+    // Calculate equivalent ORx/100 rate for display
+    orxPer100 = members > 0 ? (withORx / members) * 100 : cfg.math.default_orx_per_100 || 10.0;
+    usedCountyRate = false;
+  } else {
+    // Fallback
+    withORx = 0;
+    orxPer100 = 10.0;
+    usedCountyRate = false;
+  }
+  
   const atRisk = apiResults?.atRisk ?? (cfg ? Math.round(withORx * cfg.math.at_risk_rate) : 0);
+  
+  // Calculate milestones: Year 2 (24% decrease) and Year 3 (35% decrease) in ORx/100 rate
+  const year2OrxPer100 = apiResults?.year2OrxPer100 ?? (cfg ? orxPer100 * (1 - cfg.math.year2_decrease_rate) : orxPer100 * 0.76);
+  const year3OrxPer100 = apiResults?.year3OrxPer100 ?? (cfg ? orxPer100 * (1 - cfg.math.year3_decrease_rate) : orxPer100 * 0.65);
+  
+  const year2OrxRate = year2OrxPer100 / 100;
+  const year3OrxRate = year3OrxPer100 / 100;
+  
+  // Calculate people with ORx at each milestone
+  const year2WithORx = Math.round(members * year2OrxRate);
+  const year3WithORx = Math.round(members * year3OrxRate);
+  
+  // Calculate people potentially saved (decrease in ORx cases)
+  const year2PeopleSaved = withORx - year2WithORx;
+  const year3PeopleSaved = withORx - year3WithORx;
+  
   const prescribers = apiResults?.prescribers ?? (cfg ? Math.round(atRisk * cfg.math.prescriber_non_cdc_rate) : 0);
 
   // Step validation
@@ -138,20 +230,6 @@ export default function CommunityPage() {
   const handlePhoneChange = (value: string) => {
     const formatted = formatPhoneNumber(value);
     setForm({...form, phone: formatted});
-  };
-
-  const handleLookup = async () => {
-    if (!boot || lookupLoading || !form.state || !form.county || form.county === 'County Not Listed') return;
-    setLookupLoading(true);
-    try {
-      const response = await fetch(`${boot.apiBase}/api/lookup/population?state=${encodeURIComponent(form.state)}&county=${encodeURIComponent(form.county)}`);
-      const data = await response.json();
-      setForm(f => ({...f, population: data?.population ? String(data.population) : ''}));
-    } catch (error) {
-      console.error('Lookup error:', error);
-    } finally {
-      setLookupLoading(false);
-    }
   };
 
   const handleNext = () => {
@@ -194,7 +272,8 @@ export default function CommunityPage() {
             phone: cleanPhoneNumber(form.phone),
             // Include all fields: state, county, city, population, etc.
           }, 
-          referralToken: boot?.referralToken || null
+          referralToken: boot?.referralToken || null,
+          hubspotIntegration: boot?.hubspotIntegration === true
         })
       });
 
@@ -286,9 +365,14 @@ export default function CommunityPage() {
             <div style={{ marginTop: '4px', fontSize: '10px' }}>
               Members: {members.toLocaleString()}<br/>
               With Rx: {withRx.toLocaleString()}<br/>
+              ORx/100: {orxPer100.toFixed(1)} (usedCountyRate: {String(usedCountyRate)})<br/>
               With ORx: {withORx.toLocaleString()}<br/>
               At Risk: {atRisk.toLocaleString()}<br/>
-              Prescribers: {prescribers.toLocaleString()}
+              Prescribers: {prescribers.toLocaleString()}<br/>
+              Year 2 ORx/100: {year2OrxPer100.toFixed(1)}<br/>
+              Year 2 People Saved: {year2PeopleSaved.toLocaleString()}<br/>
+              Year 3 ORx/100: {year3OrxPer100.toFixed(1)}<br/>
+              Year 3 People Saved: {year3PeopleSaved.toLocaleString()}
             </div>
           </div>
         </div>
@@ -299,9 +383,9 @@ export default function CommunityPage() {
       {/* Step Indicator */}
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px', position: 'relative' }}>
         {[
-          { num: 1, label: 'Plan Information', icon: MapPin },
+          { num: 1, label: 'Community', icon: MapPin },
           { num: 2, label: 'Contact Information', icon: User },
-          { num: 3, label: 'Impact Report', icon: FileText }
+          { num: 3, label: 'Impact Estimate', icon: FileText }
         ].map(({ num, label, icon: Icon }, index) => {
           const isCompleted = completedSteps.includes(num);
           const isCurrent = step === num;
@@ -366,100 +450,115 @@ export default function CommunityPage() {
       {step === 1 && (
         <div style={{ display:'grid', gap:16 }}>
           <div>
-            <h3 style={{ marginBottom: '8px' }}>Plan Information</h3>
-            <p style={{ color: '#666', fontSize: '14px', margin: 0 }}>
+            <h3 style={{ marginBottom: '12px', fontSize: '1.75rem', fontWeight: '700', marginTop: 0 }}>Community Information</h3>
+            <p style={{ color: '#333', fontSize: '1rem', margin: 0, lineHeight: '1.5' }}>
               Tell us about your community so we can generate a personalized impact analysis.
             </p>
           </div>
-          <div>
-            <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px', display: 'block' }}>Primary Location *</span>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <label style={{ flex: 1 }}>
-                <span style={{ fontSize: '0.875rem', fontWeight: '500', marginBottom: '4px', display: 'block' }}>City</span>
-                <input 
-                  value={form.city} 
-                  onChange={e=>setForm({...form, city:e.target.value})}
-                  placeholder="City"
-                  autoComplete="address-level2"
-                />
-              </label>
-              <label style={{ flex: 1 }}>
-                <span style={{ fontSize: '0.875rem', fontWeight: '500', marginBottom: '4px', display: 'block' }}>State *</span>
-                <select
-                  value={form.state} 
-                  onChange={e=>{
-                    const newState = e.target.value;
-                    const apiBase = boot?.apiBase || (typeof window !== 'undefined' ? window.location.origin : '');
-                    console.log('State changed to:', newState, 'boot:', !!boot, 'apiBase:', apiBase);
-                    setForm({...form, state:newState, county:''});
-                  }}
-                  required
-                  autoComplete="address-level1"
-                  style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '14px', width: '100%' }}
-                >
-                  <option value="">Select State</option>
-                  {US_STATES.map(state => (
-                    <option key={state.value} value={state.value}>{state.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label style={{ flex: 1 }}>
-                <span style={{ fontSize: '0.875rem', fontWeight: '500', marginBottom: '4px', display: 'block' }}>County *</span>
-                <select
-                  value={form.county} 
-                  onChange={e=>setForm({...form, county:e.target.value})}
-                  disabled={!form.state}
-                  required
-                  style={{ 
-                    padding: '10px', 
-                    border: '1px solid #ccc', 
-                    borderRadius: '6px', 
-                    fontSize: '14px', 
-                    width: '100%',
-                    opacity: form.state ? 1 : 0.6,
-                    cursor: form.state ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  <option value="">Select County</option>
-                  {counties.map(county => (
-                    <option key={county.value} value={county.value}>{county.label}</option>
-                  ))}
-                  {counties.length > 0 && <option value="County Not Listed">County Not Listed</option>}
-                </select>
-              </label>
-            </div>
-          </div>
-          <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
-            <label style={{flex:1}}>
-              <span>Population *</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <label>
+              <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px', display: 'block' }}>Primary Business City</span>
               <input 
-                type="number" 
-                min={1} 
-                value={form.population} 
-                onChange={e=>setForm({...form, population:e.target.value})} 
-                required
-                placeholder="Auto-populated or enter manually"
-                autoComplete="off"
+                value={form.city} 
+                onChange={e=>setForm({...form, city:e.target.value})}
+                placeholder="City"
+                autoComplete="address-level2"
               />
             </label>
-            <button 
-              type="button" 
-              onClick={handleLookup}
-              disabled={!form.state || !form.county || form.county === 'County Not Listed' || lookupLoading}
-              style={{
-                padding:'10px 14px',
-                border:0,
-                borderRadius:8,
-                background:'#666',
-                color:'white',
-                cursor: (!form.state || !form.county || form.county === 'County Not Listed' || lookupLoading) ? 'not-allowed' : 'pointer',
-                opacity: (!form.state || !form.county || form.county === 'County Not Listed' || lookupLoading) ? 0.5 : 1,
-                whiteSpace: 'nowrap'
-              }}
-            >
-              {lookupLoading ? '...' : 'Lookup'}
-            </button>
+            <label>
+              <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px', display: 'block' }}>Primary Business State *</span>
+              <select
+                value={form.state} 
+                onChange={e=>{
+                  const newState = e.target.value;
+                  const apiBase = boot?.apiBase || (typeof window !== 'undefined' ? window.location.origin : '');
+                  console.log('State changed to:', newState, 'boot:', !!boot, 'apiBase:', apiBase);
+                  setForm({...form, state:newState, county:''});
+                }}
+                required
+                autoComplete="address-level1"
+                style={{ padding: '12px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '1rem', fontFamily: 'Lato, sans-serif', width: '100%' }}
+              >
+                <option value="">Select State</option>
+                {US_STATES.map(state => (
+                  <option key={state.value} value={state.value}>{state.label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px', display: 'block' }}>Primary Business County *</span>
+              <select
+                value={form.county} 
+                onChange={e=>setForm({...form, county:e.target.value})}
+                disabled={!form.state}
+                required
+                style={{ 
+                  padding: '12px', 
+                  border: '1px solid #ccc', 
+                  borderRadius: '6px', 
+                  fontSize: '1rem', 
+                  fontFamily: 'Lato, sans-serif', 
+                  width: '100%',
+                  opacity: form.state ? 1 : 0.6,
+                  cursor: form.state ? 'pointer' : 'not-allowed'
+                }}
+              >
+                <option value="">Select County</option>
+                {counties.map(county => (
+                  <option key={county.value} value={county.value}>{county.label}</option>
+                ))}
+                {counties.length > 0 && <option value="County Not Listed">County Not Listed</option>}
+              </select>
+            </label>
           </div>
+          {/* Population Field - Only show when county is selected */}
+          {form.county && (
+            <div>
+              <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px', display: 'block' }}>Population *</span>
+              {form.county !== 'County Not Listed' && populationFound && !manualPopulationEntry ? (
+                // Show population as text with "Enter Manually" button (only for valid counties with data)
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '1rem', color: '#333', flex: 1 }}>
+                    Your county population: <strong>{countyPopulation?.toLocaleString()}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManualPopulationEntry(true);
+                      // Keep the population value in the form
+                      if (countyPopulation) {
+                        setForm(f => ({ ...f, population: String(countyPopulation) }));
+                      }
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      border: '1px solid #ccc',
+                      borderRadius: '6px',
+                      background: 'transparent',
+                      color: '#333',
+                      cursor: 'pointer',
+                      fontSize: '0.875rem',
+                      whiteSpace: 'nowrap',
+                      fontFamily: 'Lato, sans-serif'
+                    }}
+                  >
+                    Enter Manually
+                  </button>
+                </div>
+              ) : (
+                // Show input field (manual entry, no data found, or "County Not Listed")
+                <input 
+                  type="number" 
+                  min={1} 
+                  value={form.population} 
+                  onChange={e=>setForm({...form, population:e.target.value})} 
+                  required
+                  placeholder={form.county === 'County Not Listed' ? "Enter county population" : (populationFound ? "Enter population manually" : "Enter county population")}
+                  autoComplete="off"
+                />
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -467,13 +566,13 @@ export default function CommunityPage() {
       {step === 2 && (
         <div style={{ display:'grid', gap:16 }}>
           <div>
-            <h3 style={{ marginBottom: '8px' }}>Contact Information</h3>
-            <p style={{ color: '#666', fontSize: '14px', margin: 0 }}>
+            <h3 style={{ marginBottom: '12px', fontSize: '1.75rem', fontWeight: '700', marginTop: 0 }}>Contact Information</h3>
+            <p style={{ color: '#333', fontSize: '1rem', margin: 0, lineHeight: '1.5' }}>
               Once we generate your report, we can email you a copy and schedule a follow-up discussion.
             </p>
           </div>
           <label>
-            <span>First Name *</span>
+            <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px' }}>First Name *</span>
             <input 
               value={form.firstName} 
               onChange={e=>setForm({...form, firstName:e.target.value})} 
@@ -482,7 +581,7 @@ export default function CommunityPage() {
             />
           </label>
           <label>
-            <span>Last Name *</span>
+            <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px' }}>Last Name *</span>
             <input 
               value={form.lastName} 
               onChange={e=>setForm({...form, lastName:e.target.value})} 
@@ -491,7 +590,7 @@ export default function CommunityPage() {
             />
           </label>
           <label>
-            <span>Email Address *</span>
+            <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px' }}>Email Address *</span>
             <input 
               type="email" 
               value={form.email} 
@@ -501,7 +600,7 @@ export default function CommunityPage() {
             />
           </label>
           <label>
-            <span>Phone</span>
+            <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px' }}>Phone</span>
             <input 
               type="tel"
               value={form.phone} 
@@ -512,15 +611,7 @@ export default function CommunityPage() {
             />
           </label>
           <label>
-            <span>Company/Org</span>
-            <input 
-              value={form.company} 
-              onChange={e=>setForm({...form, company:e.target.value})}
-              autoComplete="organization"
-            />
-          </label>
-          <label>
-            <span>Title</span>
+            <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px' }}>Title</span>
             <input 
               value={form.title} 
               onChange={e=>setForm({...form, title:e.target.value})}
@@ -534,8 +625,8 @@ export default function CommunityPage() {
       {step === 3 && (
         <div style={{ display:'grid', gap:16 }}>
           <div>
-            <h3 style={{ marginBottom: '8px' }}>Impact Report</h3>
-            <p style={{ color: '#666', fontSize: '14px', margin: 0 }}>
+            <h3 style={{ marginBottom: '12px', fontSize: '1.75rem', fontWeight: '700', marginTop: 0 }}>Impact Estimate</h3>
+            <p style={{ color: '#333', fontSize: '1rem', margin: 0, lineHeight: '1.5' }}>
               Your personalized impact analysis shows the potential impact of opioid dependency risk factors within your community.
             </p>
           </div>
@@ -563,25 +654,109 @@ export default function CommunityPage() {
           )}
           {submitted && (
             <div style={{ background:'#e8f5e9', padding:16, borderRadius:8, marginBottom:16 }}>
-              <h4 style={{ marginTop: 0, marginBottom: 0 }}>✓ Thank you! We will follow up soon.</h4>
+              <h4 style={{ marginTop: 0, marginBottom: 0 }}>✓ Thank you! Your results have been submitted. Our team will contact you shortly to discuss your impact analysis.</h4>
             </div>
           )}
           {submitted && apiResults && (
             <>
-              <div style={{ background:'#fafafa', padding:16, borderRadius:8 }}>
-                <h4 style={{ marginTop: 0 }}>Estimated Outcomes</h4>
-                <ul style={{ margin: '8px 0', paddingLeft: '24px' }}>
-                  <li>Members: <b>{members.toLocaleString()}</b></li>
-                  <li>Members with Rx: <b>{withRx.toLocaleString()}</b></li>
-                  <li>Members with Opioid Rx (ORx): <b>{withORx.toLocaleString()}</b></li>
-                  <li>Identified At-Risk Members: <b>{atRisk.toLocaleString()}</b></li>
-                  <li>Prescribers Identified: <b>{prescribers.toLocaleString()}</b></li>
-                </ul>
+              {/* Centered OIE Image */}
+              <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                <img 
+                  src="/images/OIE.png" 
+                  alt="OIE" 
+                  style={{ maxWidth: '100%', height: 'auto' }}
+                />
               </div>
-              <div style={{ background:'#fff3cd', padding:16, borderRadius:8 }}>
-                <p style={{ margin: 0, fontSize: '14px' }}>
-                  Your results have been submitted. Our team will contact you shortly to discuss your community analysis.
-                </p>
+
+              {/* Results List - Matching Impact Form Format */}
+              <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '32px' }}>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  padding: '16px 0',
+                  borderBottom: '1px solid #e5e7eb'
+                }}>
+                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '700' }}>Total Population</div>
+                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '400' }}>{members.toLocaleString()}</div>
+                </div>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  padding: '16px 0',
+                  borderBottom: '1px solid #e5e7eb'
+                }}>
+                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '700' }}>Residents with Opioid Rx</div>
+                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '400' }}>{withORx.toLocaleString()}</div>
+                </div>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  padding: '16px 0',
+                  borderBottom: '1px solid #e5e7eb'
+                }}>
+                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '700' }}>At-Risk Residents</div>
+                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '400' }}>{atRisk.toLocaleString()}</div>
+                </div>
+              </div>
+
+              {/* Year 2 and Year 3 Milestones */}
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '16px', 
+                marginTop: '32px',
+                marginBottom: '32px',
+                padding: '24px',
+                background: '#f0f9ff',
+                border: '2px solid #3b82f6',
+                borderRadius: '8px'
+              }}>
+                <div style={{ fontSize: '1.25rem', color: '#333', fontWeight: '700', marginBottom: '16px' }}>
+                  Projected Impact Milestones
+                </div>
+                
+                <div style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid #bfdbfe' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '8px', color: '#1e40af' }}>
+                    Year 2 Milestone: 24% Decrease
+                  </div>
+                  <div style={{ fontSize: '0.875rem', color: '#333' }}>
+                    Potential Reduction: <strong style={{ color: '#1e40af' }}>{year2PeopleSaved.toLocaleString()}</strong> residents
+                  </div>
+                </div>
+                
+                <div>
+                  <div style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '8px', color: '#1e40af' }}>
+                    Year 3 Milestone: 35% Decrease
+                  </div>
+                  <div style={{ fontSize: '0.875rem', color: '#333' }}>
+                    Potential Reduction: <strong style={{ color: '#1e40af' }}>{year3PeopleSaved.toLocaleString()}</strong> residents
+                  </div>
+                </div>
+              </div>
+
+              {/* OFA Button */}
+              <div style={{ textAlign: 'center', marginTop: '32px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Add any button action here if needed
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0
+                  }}
+                >
+                  <img 
+                    src="/images/OFA-dark.png" 
+                    alt="OFA" 
+                    style={{ maxWidth: '325px', height: 'auto' }}
+                  />
+                </button>
               </div>
             </>
           )}
@@ -598,7 +773,7 @@ export default function CommunityPage() {
               style={{ 
                 padding:'10px 20px', 
                 border:'1px solid #ccc', 
-                background:'transparent',
+                background:'secondary',
                 borderRadius:8,
                 cursor: 'pointer'
               }}
@@ -635,13 +810,14 @@ export default function CommunityPage() {
       )}
 
       <style jsx>{`
-        label { display:flex; flex-direction:column; gap:4px; }
-        label span { font-weight:500; font-size:14px; }
-        input { padding:10px; border:1px solid #ccc; border-radius:6px; font-size:14px; }
+        label { display:flex; flex-direction:column; }
+        input { padding:12px; border:1px solid #ccc; border-radius:6px; font-size:1rem; font-family: Lato, sans-serif; }
         input:focus { outline:none; border-color:#111; }
-        button { padding:10px 14px; border:0; border-radius:8px; background:#111; color:white; cursor:pointer; }
+        button { padding:10px 14px; border:0; border-radius:8px; background:#111; color:white; cursor:pointer; font-family: Lato, sans-serif; font-size:1rem; }
         [data-theme="dark"] button { background:#eee; color:#111; }
         [data-theme="dark"] input { background:#222; color:#eee; border-color:#444; }
+        h3 { font-family: Lato, sans-serif; }
+        p { font-family: Lato, sans-serif; }
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }

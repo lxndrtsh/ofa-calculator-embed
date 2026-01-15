@@ -6,7 +6,7 @@ import { US_STATES, getCountiesForState, getCountyRate, convertRateToOpioidRxRat
 
 // Force dynamic rendering to avoid hydration issues in iframe
 export const dynamic = 'force-dynamic';
-type Boot = { apiBase: string; configVersion: string; theme: 'light'|'dark'|string; referralToken: string|null; };
+type Boot = { apiBase: string; configVersion: string; theme: 'light'|'dark'|string; referralToken: string|null; hubspotIntegration?: boolean; };
 function postToParent(msg: any) { window.parent.postMessage(msg, '*'); }
 function useBoot(): Boot|null {
   const [boot, setBoot] = useState<Boot|null>(null);
@@ -55,7 +55,7 @@ export default function ImpactPage() {
     phone: '', 
     title: '' 
   });
-  const [showPlanMembers, setShowPlanMembers] = useState(false);
+  const [showPlanMembers, setShowPlanMembers] = useState(true); // Default to Plan Members
   const [mounted, setMounted] = useState(false);
   const [counties, setCounties] = useState<Array<{ value: string; label: string }>>([]);
   const [countyRate, setCountyRate] = useState<number | null>(null);
@@ -281,7 +281,8 @@ export default function ImpactPage() {
             planMembers: cleanNumber(form.planMembers),
             // Include all fields: state, county, city, etc.
           }, 
-          referralToken: boot?.referralToken || null
+          referralToken: boot?.referralToken || null,
+          hubspotIntegration: boot?.hubspotIntegration === true
         })
       });
 
@@ -454,7 +455,7 @@ export default function ImpactPage() {
         {[
           { num: 1, label: 'Plan Information', icon: Building2 },
           { num: 2, label: 'Contact Information', icon: User },
-          { num: 3, label: 'Impact Report', icon: FileText }
+          { num: 3, label: 'Impact Estimate', icon: FileText }
         ].map(({ num, label, icon: Icon }, index) => {
           const isCompleted = completedSteps.includes(num);
           const isCurrent = step === num;
@@ -524,83 +525,61 @@ export default function ImpactPage() {
               Tell us about your health plan so we can generate a personalized impact analysis.
             </p>
           </div>
-          <label>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontSize: '1.125rem', fontWeight: '700', display: 'block' }}>
-                {showPlanMembers ? 'Number of Plan Members' : 'Number of Employees'}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPlanMembers(!showPlanMembers);
-                  // Clear the opposite field when toggling
-                  if (showPlanMembers) {
-                    setForm({...form, planMembers: ''});
-                  } else {
-                    setForm({...form, employees: ''});
-                  }
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: showPlanMembers ? '#3b82f6' : '#f3f4f6',
-                  border: showPlanMembers ? '2px solid #3b82f6' : '2px solid #e5e7eb',
-                  color: showPlanMembers ? '#ffffff' : '#6b7280',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: '600',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  fontFamily: 'Lato, sans-serif',
-                  transition: 'all 0.2s',
-                  boxShadow: showPlanMembers ? '0 2px 4px rgba(59, 130, 246, 0.2)' : 'none'
-                }}
-                onMouseEnter={(e) => {
-                  if (!showPlanMembers) {
-                    e.currentTarget.style.background = '#e5e7eb';
-                    e.currentTarget.style.borderColor = '#d1d5db';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!showPlanMembers) {
-                    e.currentTarget.style.background = '#f3f4f6';
-                    e.currentTarget.style.borderColor = '#e5e7eb';
-                  }
-                }}
-              >
-                {showPlanMembers ? <CheckCircle2 size={16} /> : <Circle size={16} />}
-                <span>Know your plan members?</span>
-              </button>
-            </div>
-            <span style={{ fontSize: '0.875rem', color: '#666', marginBottom: '4px', display: 'block' }}>
-              {showPlanMembers 
-                ? 'If you know your plan member count, we can be more accurate'
-                : 'Enter the number of employees you have for a general estimate'}
+          
+          {/* Radio Button Selection - COMMENTED OUT FOR TESTING */}
+          {/* 
+          <div>
+            <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '12px', display: 'block' }}>
+              I know my:
             </span>
-            {showPlanMembers ? (
-              <input 
-                type="text" 
-                inputMode="numeric"
-                value={form.planMembers} 
-                onChange={e=>handlePlanMembersChange(e.target.value)} 
-                placeholder="e.g., 25,000"
-                autoComplete="off"
-              />
-            ) : (
-              <input 
-                type="text" 
-                inputMode="numeric"
-                value={form.employees} 
-                onChange={e=>handleEmployeesChange(e.target.value)} 
-                placeholder="e.g., 10,000"
-                autoComplete="off"
-              />
-            )}
-          </label>
-          <div style={{ fontSize: '0.875rem', color: '#666', marginTop: '-8px' }}>
-            * {showPlanMembers ? 'Plan members' : 'Employees'} is required
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '8px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '12px', border: '1px solid #ccc', borderRadius: '6px', transition: 'all 0.2s', background: showPlanMembers ? '#f0f9ff' : '#fff', borderColor: showPlanMembers ? '#3b82f6' : '#ccc' }}>
+                <input
+                  type="radio"
+                  name="memberType"
+                  value="planMembers"
+                  checked={showPlanMembers}
+                  onChange={() => {
+                    setShowPlanMembers(true);
+                    setForm({...form, employees: ''});
+                  }}
+                  style={{ marginRight: '12px', width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '1rem', fontWeight: '500' }}>Total Plan Members</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '12px', border: '1px solid #ccc', borderRadius: '6px', transition: 'all 0.2s', background: !showPlanMembers ? '#f0f9ff' : '#fff', borderColor: !showPlanMembers ? '#3b82f6' : '#ccc' }}>
+                <input
+                  type="radio"
+                  name="memberType"
+                  value="employees"
+                  checked={!showPlanMembers}
+                  onChange={() => {
+                    setShowPlanMembers(false);
+                    setForm({...form, planMembers: ''});
+                  }}
+                  style={{ marginRight: '12px', width: '18px', height: '18px', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '1rem', fontWeight: '500' }}>Total Employees</span>
+              </label>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: '#666', marginTop: '8px', marginBottom: 0 }}>
+              If you know your plan's member size choose that, or we can estimate based on your employee population.
+            </p>
           </div>
+          */}
+
+          {/* Plan Members Input - Always shown (radio buttons commented out) */}
+          <label>
+            <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px' }}>Number of Plan Members *</span>
+            <input 
+              type="text" 
+              inputMode="numeric"
+              value={form.planMembers} 
+              onChange={e=>handlePlanMembersChange(e.target.value)} 
+              placeholder="e.g., 25,000"
+              autoComplete="off"
+            />
+          </label>
           <label>
             <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px' }}>Business/Organization Name *</span>
             <input 
@@ -610,62 +589,59 @@ export default function ImpactPage() {
               autoComplete="organization"
             />
           </label>
-          <div>
-            <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px', display: 'block' }}>Primary Location for your business</span>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <label style={{ flex: 1 }}>
-                <span style={{ fontSize: '0.875rem', fontWeight: '500', marginBottom: '4px', display: 'block' }}>City</span>
-                <input 
-                  value={form.city} 
-                  onChange={e=>setForm({...form, city:e.target.value})}
-                  placeholder="City"
-                  autoComplete="address-level2"
-                />
-              </label>
-              <label style={{ flex: 1 }}>
-                <span style={{ fontSize: '0.875rem', fontWeight: '500', marginBottom: '4px', display: 'block' }}>State</span>
-                <select
-                  value={form.state} 
-                  onChange={e=>{
-                    const newState = e.target.value;
-                    const apiBase = boot?.apiBase || (typeof window !== 'undefined' ? window.location.origin : '');
-                    console.log('State changed to:', newState, 'boot:', !!boot, 'apiBase:', apiBase);
-                    setForm({...form, state:newState, county:''});
-                  }}
-                  autoComplete="address-level1"
-                  style={{ padding: '12px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '1rem', fontFamily: 'Lato, sans-serif', width: '100%' }}
-                >
-                  <option value="">Select State</option>
-                  {US_STATES.map(state => (
-                    <option key={state.value} value={state.value}>{state.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label style={{ flex: 1 }}>
-                <span style={{ fontSize: '0.875rem', fontWeight: '500', marginBottom: '4px', display: 'block' }}>County</span>
-                <select
-                  value={form.county} 
-                  onChange={e=>setForm({...form, county:e.target.value})}
-                  disabled={!form.state}
-                  style={{ 
-                    padding: '12px', 
-                    border: '1px solid #ccc', 
-                    borderRadius: '6px', 
-                    fontSize: '1rem', 
-                    fontFamily: 'Lato, sans-serif', 
-                    width: '100%',
-                    opacity: form.state ? 1 : 0.6,
-                    cursor: form.state ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  <option value="">Select County</option>
-                  {counties.map(county => (
-                    <option key={county.value} value={county.value}>{county.label}</option>
-                  ))}
-                  {counties.length > 0 && <option value="County Not Listed">County Not Listed</option>}
-                </select>
-              </label>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <label>
+              <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px', display: 'block' }}>Primary Business City</span>
+              <input 
+                value={form.city} 
+                onChange={e=>setForm({...form, city:e.target.value})}
+                placeholder="City"
+                autoComplete="address-level2"
+              />
+            </label>
+            <label>
+              <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px', display: 'block' }}>Primary Business State</span>
+              <select
+                value={form.state} 
+                onChange={e=>{
+                  const newState = e.target.value;
+                  const apiBase = boot?.apiBase || (typeof window !== 'undefined' ? window.location.origin : '');
+                  console.log('State changed to:', newState, 'boot:', !!boot, 'apiBase:', apiBase);
+                  setForm({...form, state:newState, county:''});
+                }}
+                autoComplete="address-level1"
+                style={{ padding: '12px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '1rem', fontFamily: 'Lato, sans-serif', width: '100%' }}
+              >
+                <option value="">Select State</option>
+                {US_STATES.map(state => (
+                  <option key={state.value} value={state.value}>{state.label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px', display: 'block' }}>Primary Business County</span>
+              <select
+                value={form.county} 
+                onChange={e=>setForm({...form, county:e.target.value})}
+                disabled={!form.state}
+                style={{ 
+                  padding: '12px', 
+                  border: '1px solid #ccc', 
+                  borderRadius: '6px', 
+                  fontSize: '1rem', 
+                  fontFamily: 'Lato, sans-serif', 
+                  width: '100%',
+                  opacity: form.state ? 1 : 0.6,
+                  cursor: form.state ? 'pointer' : 'not-allowed'
+                }}
+              >
+                <option value="">Select County</option>
+                {counties.map(county => (
+                  <option key={county.value} value={county.value}>{county.label}</option>
+                ))}
+                {counties.length > 0 && <option value="County Not Listed">County Not Listed</option>}
+              </select>
+            </label>
           </div>
         </div>
       )}
@@ -733,7 +709,7 @@ export default function ImpactPage() {
       {step === 3 && (
         <div style={{ display:'grid', gap:16 }}>
           <div>
-            <h3 style={{ marginBottom: '12px', fontSize: '1.75rem', fontWeight: '700', marginTop: 0 }}>Impact Report</h3>
+            <h3 style={{ marginBottom: '12px', fontSize: '1.75rem', fontWeight: '700', marginTop: 0 }}>Impact Estimate</h3>
             <p style={{ color: '#333', fontSize: '1rem', margin: 0, lineHeight: '1.5' }}>
               Your personalized impact analysis shows the potential impact of opioid dependency risk factors within your health plan.
             </p>
@@ -770,8 +746,8 @@ export default function ImpactPage() {
               {/* Centered OIA Image */}
               <div style={{ textAlign: 'center', marginBottom: '32px' }}>
                 <img 
-                  src="/images/OIA.png" 
-                  alt="OIA" 
+                  src="/images/OIE.png" 
+                  alt="OIE" 
                   style={{ maxWidth: '100%', height: 'auto' }}
                 />
               </div>
@@ -795,80 +771,8 @@ export default function ImpactPage() {
                   padding: '16px 0',
                   borderBottom: '1px solid #e5e7eb'
                 }}>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '700' }}>Estimated Members with Rx</div>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '400' }}>{withRx.toLocaleString()}</div>
-                </div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  padding: '16px 0',
-                  borderBottom: '1px solid #e5e7eb'
-                }}>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '700' }}>Estimated Members with Opioid Rx</div>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '400' }}>{withORx.toLocaleString()}</div>
-                </div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  padding: '16px 0',
-                  borderBottom: '1px solid #e5e7eb'
-                }}>
                   <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '700' }}>Identified At-Risk Members</div>
                   <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '400' }}>{atRisk.toLocaleString()}</div>
-                </div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  padding: '16px 0',
-                  borderBottom: '1px solid #e5e7eb'
-                }}>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '700' }}>Prescribers Identified</div>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '400' }}>{prescribers.toLocaleString()}</div>
-                </div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  padding: '16px 0',
-                  borderBottom: '1px solid #e5e7eb'
-                }}>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '700' }}>Cost/Member with Rx</div>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '400' }}>${costPerMemberORx.toLocaleString()}</div>
-                </div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  padding: '16px 0',
-                  borderBottom: '1px solid #e5e7eb'
-                }}>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '700' }}>Net Cost/Member/Orx</div>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '400' }}>${netCostPerMemberORx.toLocaleString()}</div>
-                </div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  padding: '16px 0',
-                  borderBottom: '1px solid #e5e7eb'
-                }}>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '700' }}>Avg Care Managed Claim Cost</div>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '400' }}>
-                    ${avgCareManagedCost.toLocaleString()} <span style={{ color: '#666', fontSize: '1rem' }}>(${savingsPerMember.toLocaleString()} savings)</span>
-                  </div>
-                </div>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  padding: '16px 0',
-                  borderBottom: '1px solid #e5e7eb'
-                }}>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '700' }}>Average Medical Claim per Member</div>
-                  <div style={{ fontSize: '1.125rem', color: '#333', fontWeight: '400' }}>${(apiResults?.avgClaim || 4000).toLocaleString()}</div>
                 </div>
               </div>
 

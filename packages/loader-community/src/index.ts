@@ -4,6 +4,7 @@ type Options = {
   theme?: 'light'|'dark';
   referralCookie?: string;
   iframeBase?: string;
+  hubspotIntegration?: boolean;
 };
 
 declare global {
@@ -64,7 +65,8 @@ declare global {
             apiBase: opts.apiBase,
             configVersion: String(opts.configVersion),
             theme: opts.theme,
-            referralToken: referral ?? null
+            referralToken: referral ?? null,
+            hubspotIntegration: opts.hubspotIntegration === true
           }
         }, allowed);
       }

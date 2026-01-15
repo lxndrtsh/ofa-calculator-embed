@@ -73,17 +73,24 @@ export async function uploadToSpaces(
 
   await client.send(command);
 
-  // Construct the public URL
-  let endpoint = process.env.DO_SPACES_ENDPOINT || '';
-  // Strip any protocol prefix if present
-  endpoint = endpoint.replace(/^https?:\/\//, '').trim();
+  // Construct the public URL - prioritize CDN domain over Spaces URL
+  const cdnDomain = process.env.DO_SPACES_CDN_DOMAIN;
   
-  const cdnDomain = process.env.DO_SPACES_CDN_DOMAIN; // Optional: if you have a CDN domain
-  let baseUrl = cdnDomain || `https://${bucket}.${endpoint}`;
-  
-  // Ensure baseUrl has a protocol (default to https://)
-  if (!baseUrl.match(/^https?:\/\//)) {
-    baseUrl = `https://${baseUrl}`;
+  let baseUrl: string;
+  if (cdnDomain) {
+    // Use CDN domain if configured
+    baseUrl = cdnDomain;
+    // Ensure baseUrl has a protocol (default to https://)
+    if (!baseUrl.match(/^https?:\/\//)) {
+      baseUrl = `https://${baseUrl}`;
+    }
+  } else {
+    // Fallback to Spaces URL if CDN is not configured (log warning)
+    let endpoint = process.env.DO_SPACES_ENDPOINT || '';
+    // Strip any protocol prefix if present
+    endpoint = endpoint.replace(/^https?:\/\//, '').trim();
+    baseUrl = `https://${bucket}.${endpoint}`;
+    console.warn('DO_SPACES_CDN_DOMAIN not set - using Spaces URL instead of CDN URL');
   }
   
   const url = `${baseUrl}/${key}`;

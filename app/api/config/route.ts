@@ -3,17 +3,34 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const version = searchParams.get('version') || process.env.NEXT_PUBLIC_CONFIG_VERSION || 'dev';
   const form = searchParams.get('form') || 'impact';
+  
+  // Impact form configuration (employer-based)
+  const impactMath = {
+    avg_dependents_per_employee: 2.5,
+    rx_rate: 0.5,
+    opioid_rx_rate: 0.2,
+    at_risk_rate: 0.3,
+    prescriber_non_cdc_rate: 0.9,
+    avg_med_claim_usd: 4000
+  };
+  
+  // Community form configuration (county-based with milestones)
+  const communityMath = {
+    rx_rate: 0.5, // 50% of residents with ANY prescription
+    opioid_rx_rate: 0.2, // 20% of residents with Rx (default, may be overridden by county data)
+    at_risk_rate: 0.3, // 30% of residents with ORx are at risk
+    prescriber_non_cdc_rate: 0.9, // 90% of at-risk members have prescribers (for prescriber calculation)
+    year2_decrease_rate: 0.24, // 24% decrease in ORx/100 rate by Year 2
+    year3_decrease_rate: 0.35, // 35% decrease in ORx/100 rate by Year 3
+    default_orx_per_100: 10.0 // Default ORx/100 rate if county not found in dataset
+  };
+  
+  const math = form === 'community' ? communityMath : impactMath;
+  
   return NextResponse.json({
     version, form,
     labels: { impact_title: 'Impact Analysis', community_title: 'Return-on-Community' },
-    math: {
-      avg_dependents_per_employee: 2.5,
-      rx_rate: 0.5,
-      opioid_rx_rate: 0.2,
-      at_risk_rate: 0.3,
-      prescriber_non_cdc_rate: 0.9,
-      avg_med_claim_usd: 4000
-    }
+    math
   }, { headers: { 'Cache-Control': 'public, max-age=60' } });
 }
 

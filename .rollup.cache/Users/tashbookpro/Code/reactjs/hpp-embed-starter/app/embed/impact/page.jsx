@@ -412,14 +412,14 @@ export default function ImpactPage() {
           </div>
         </div>)}
 
-      <h2>Impact Analysis</h2>
+      <h2>Impact Estimate</h2>
       
       {/* Step Indicator */}
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px', position: 'relative' }}>
         {[
             { num: 1, label: 'Plan Information', icon: Building2 },
             { num: 2, label: 'Contact Information', icon: User },
-            { num: 3, label: 'Impact Report', icon: FileText }
+            { num: 3, label: 'Impact Estimate', icon: FileText }
         ].map(({ num, label, icon: Icon }, index) => {
             const isCompleted = completedSteps.includes(num);
             const isCurrent = step === num;
@@ -607,7 +607,7 @@ export default function ImpactPage() {
       {/* Step 3: Results */}
       {step === 3 && (<div style={{ display: 'grid', gap: 16 }}>
           <div>
-            <h3 style={{ marginBottom: '12px', fontSize: '1.75rem', fontWeight: '700', marginTop: 0 }}>Impact Report</h3>
+            <h3 style={{ marginBottom: '12px', fontSize: '1.75rem', fontWeight: '700', marginTop: 0 }}>Impact Estimate</h3>
             <p style={{ color: '#333', fontSize: '1rem', margin: 0, lineHeight: '1.5' }}>
               Your personalized impact analysis shows the potential impact of opioid dependency risk factors within your health plan.
             </p>
@@ -635,7 +635,7 @@ export default function ImpactPage() {
           {submitted && apiResults && (<>
               {/* Centered OIA Image */}
               <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                <img src="/images/OIA.png" alt="OIA" style={{ maxWidth: '100%', height: 'auto' }}/>
+                <img src="/images/OIE.png" alt="OIA" style={{ maxWidth: '100%', height: 'auto' }}/>
               </div>
 
               {/* Results List */}

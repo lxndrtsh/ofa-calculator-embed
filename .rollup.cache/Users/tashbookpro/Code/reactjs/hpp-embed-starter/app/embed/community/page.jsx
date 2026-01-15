@@ -285,7 +285,7 @@ export default function CommunityPage() {
         {[
             { num: 1, label: 'Plan Information', icon: MapPin },
             { num: 2, label: 'Contact Information', icon: User },
-            { num: 3, label: 'Impact Report', icon: FileText }
+            { num: 3, label: 'Impact Estimate', icon: FileText }
         ].map(({ num, label, icon: Icon }, index) => {
             const isCompleted = completedSteps.includes(num);
             const isCurrent = step === num;
@@ -436,7 +436,7 @@ export default function CommunityPage() {
       {/* Step 3: Results */}
       {step === 3 && (<div style={{ display: 'grid', gap: 16 }}>
           <div>
-            <h3 style={{ marginBottom: '8px' }}>Impact Report</h3>
+            <h3 style={{ marginBottom: '8px' }}>Impact Estimate</h3>
             <p style={{ color: '#666', fontSize: '14px', margin: 0 }}>
               Your personalized impact analysis shows the potential impact of opioid dependency risk factors within your community.
             </p>
