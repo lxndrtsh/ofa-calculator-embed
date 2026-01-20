@@ -467,7 +467,10 @@ export default function FullOIAPage() {
           padding: step === 1 ? '0' : '24px',
           background: step === 1 ? 'transparent' : '#f9fafb',
           borderRadius: '8px',
-          minHeight: step === 1 ? 'auto' : '400px'
+          minHeight: step === 1 ? 'auto' : '400px',
+          position: 'sticky',
+          top: '16px',
+          alignSelf: 'flex-start'
         }}>
           {step === 1 ? (
             <img 
@@ -1017,6 +1020,10 @@ export default function FullOIAPage() {
           .two-column-layout {
             grid-template-columns: 1fr;
             gap: 24px;
+          }
+          .content-view {
+            position: relative !important;
+            top: auto !important;
           }
         }
         

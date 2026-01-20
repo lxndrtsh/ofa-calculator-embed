@@ -12,7 +12,7 @@ interface HubSpotContactData {
   county?: string;
   title?: string;
   // Form-specific fields
-  formType: 'impact' | 'community';
+  formType: 'impact' | 'community' | 'full-oia';
   // Calculated results
   calculatedResults: any;
   // Community results (for impact form that also calculates community metrics)
