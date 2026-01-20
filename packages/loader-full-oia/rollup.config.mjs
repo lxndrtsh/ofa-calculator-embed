@@ -1,0 +1,35 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import terser from '@rollup/plugin-terser';
+import typescript from '@rollup/plugin-typescript';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+/** @type {import('rollup').RollupOptions} */
+export default {
+  input: path.join(__dirname, 'src/index.ts'),
+  output: {
+    file: path.join(__dirname, '../../public/cdn/leadcalc-full-oia.min.js'),
+    format: 'umd',
+    name: 'OFACalculator',
+    sourcemap: true
+  },
+  plugins: [
+    typescript({
+      tsconfig: path.join(__dirname, 'tsconfig.json'),
+      declaration: false,
+      declarationMap: false,
+      rootDir: path.join(__dirname, 'src'),
+      compilerOptions: {
+        target: 'ES2021',
+        module: 'ESNext',
+        moduleResolution: 'node',
+        lib: ['DOM', 'ES2021'],
+        strict: true,
+        esModuleInterop: true,
+        skipLibCheck: true,
+        noEmit: false
+      }
+    }),
+    terser()
+  ]
+};

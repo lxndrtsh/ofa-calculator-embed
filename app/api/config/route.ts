@@ -25,12 +25,18 @@ export async function GET(req: Request) {
     default_orx_per_100: 10.0 // Default ORx/100 rate if county not found in dataset
   };
   
+  // full-oia uses the same math as impact
   const math = form === 'community' ? communityMath : impactMath;
+  
+  // Read CONFIG_SHOW_DEVBOX environment variable
+  // If not defined or 'false', default to false
+  const showDevBox = process.env.CONFIG_SHOW_DEVBOX === 'true' || process.env.CONFIG_SHOW_DEVBOX === '1';
   
   return NextResponse.json({
     version, form,
     labels: { impact_title: 'Impact Analysis', community_title: 'Return-on-Community' },
-    math
+    math,
+    showDevBox
   }, { headers: { 'Cache-Control': 'public, max-age=60' } });
 }
 

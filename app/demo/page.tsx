@@ -1,24 +1,23 @@
 'use client';
 import { useEffect, useRef } from 'react';
 export default function DemoHost() {
-  const initialized = useRef(false);
+  const impactInitialized = useRef(false);
+  const fullOiaInitialized = useRef(false);
+  
   useEffect(() => {
-    // Guard against double initialization in Strict Mode
-    if (initialized.current) return;
+    // Initialize Impact form
+    if (impactInitialized.current) return;
     
-    // Check if container already has an iframe (already initialized)
-    const container = document.getElementById('impact-mount');
-    if (container && container.querySelector('iframe')) {
-      initialized.current = true;
+    const impactContainer = document.getElementById('impact-mount');
+    if (impactContainer && impactContainer.querySelector('iframe')) {
+      impactInitialized.current = true;
       return;
     }
     
-    initialized.current = true;
+    impactInitialized.current = true;
     
-    // Check if script already exists
-    const existingScript = document.querySelector('script[src="/cdn/leadcalc-impact.min.js"]');
-    if (existingScript) {
-      // Script already loaded, just init
+    const existingImpactScript = document.querySelector('script[src="/cdn/leadcalc-impact.min.js"]');
+    if (existingImpactScript) {
       // @ts-ignore
       window.OFACalculator?.init('impact-mount', {
         apiBase: window.location.origin,
@@ -30,9 +29,9 @@ export default function DemoHost() {
       return;
     }
     
-    const s = document.createElement('script');
-    s.src = '/cdn/leadcalc-impact.min.js';
-    s.onload = () => {
+    const s1 = document.createElement('script');
+    s1.src = '/cdn/leadcalc-impact.min.js';
+    s1.onload = () => {
       // @ts-ignore
       window.OFACalculator?.init('impact-mount', {
         apiBase: window.location.origin,
@@ -42,13 +41,63 @@ export default function DemoHost() {
         referralCookie: 'referral'
       });
     };
-    document.body.appendChild(s);
+    document.body.appendChild(s1);
   }, []);
+
+  useEffect(() => {
+    // Initialize Full OIA form
+    if (fullOiaInitialized.current) return;
+    
+    const fullOiaContainer = document.getElementById('full-oia-mount');
+    if (fullOiaContainer && fullOiaContainer.querySelector('iframe')) {
+      fullOiaInitialized.current = true;
+      return;
+    }
+    
+    fullOiaInitialized.current = true;
+    
+    const existingFullOiaScript = document.querySelector('script[src="/cdn/leadcalc-full-oia.min.js"]');
+    if (existingFullOiaScript) {
+      // @ts-ignore
+      window.OFACalculator?.init('full-oia-mount', {
+        apiBase: window.location.origin,
+        iframeBase: window.location.origin,
+        configVersion: 'dev',
+        theme: 'light',
+        referralCookie: 'referral'
+      });
+      return;
+    }
+    
+    const s2 = document.createElement('script');
+    s2.src = '/cdn/leadcalc-full-oia.min.js';
+    s2.onload = () => {
+      // @ts-ignore
+      window.OFACalculator?.init('full-oia-mount', {
+        apiBase: window.location.origin,
+        iframeBase: window.location.origin,
+        configVersion: 'dev',
+        theme: 'light',
+        referralCookie: 'referral'
+      });
+    };
+    document.body.appendChild(s2);
+  }, []);
+
   return (
     <main style={{padding:24}}>
       <h1>Demo Host Page</h1>
-      <p>This simulates a client website. The loader script inserts the Impact iframe below.</p>
-      <div id="impact-mount" style={{ maxWidth: 720 }} />
+      <p>This simulates a client website. The loader scripts insert the iframes below.</p>
+      
+      <div style={{ marginBottom: '48px' }}>
+        <h2>Impact Analysis Form</h2>
+        <div id="impact-mount" style={{ maxWidth: 720 }} />
+      </div>
+      
+      <div style={{ marginBottom: '48px' }}>
+        <h2>Opioid Impact Estimate (Full OIA)</h2>
+        <div id="full-oia-mount" style={{ maxWidth: 1200 }} />
+      </div>
     </main>
   );
 }

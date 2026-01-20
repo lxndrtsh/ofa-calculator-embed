@@ -302,27 +302,29 @@ export default function CommunityPage() {
   return (
     <div ref={rootRef} style={{ padding:16, maxWidth:720, margin:'0 auto', position:'relative' }}>
       {/* Dev Debug Panel */}
-      <button 
-        type="button"
-        onClick={() => setShowDev(!showDev)}
-        style={{
-          position: 'absolute',
-          top: 16,
-          right: 16,
-          padding: '4px 8px',
-          fontSize: '11px',
-          background: '#666',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          zIndex: 1000
-        }}
-      >
-        DEV
-      </button>
-      
-      {showDev && (
+      {cfg?.showDevBox && (
+        <>
+          <button 
+            type="button"
+            onClick={() => setShowDev(!showDev)}
+            style={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              padding: '4px 8px',
+              fontSize: '11px',
+              background: '#666',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              zIndex: 1000
+            }}
+          >
+            DEV
+          </button>
+          
+          {showDev && (
         <div style={{
           position: 'absolute',
           top: 40,
@@ -376,6 +378,8 @@ export default function CommunityPage() {
             </div>
           </div>
         </div>
+          )}
+        </>
       )}
 
       <h2>Return-on-Community</h2>
