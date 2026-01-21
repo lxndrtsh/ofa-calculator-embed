@@ -35,14 +35,23 @@ declare global {
     return m ? decodeURIComponent(m[1]) : null;
   }
   function init(elOrId: HTMLElement|string, options: Options) {
-    const opts = { ...DEFAULTS, ...options };
-    const container = getEl(elOrId);
-    
-    // Prevent duplicate initialization
-    if (container.querySelector('iframe')) {
-      console.warn('OFACalculator: container already initialized, skipping');
-      return;
-    }
+    try {
+      const opts = { ...DEFAULTS, ...options };
+      
+      // Wait for DOM to be ready if needed
+      if (typeof document !== 'undefined' && document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => init(elOrId, options));
+        return;
+      }
+      
+      const container = getEl(elOrId);
+      console.log('OFACalculator: Initializing full-oia form in container:', elOrId);
+      
+      // Prevent duplicate initialization
+      if (container.querySelector('iframe')) {
+        console.warn('OFACalculator: container already initialized, skipping');
+        return;
+      }
     
     const wrapper = document.createElement('div');
     wrapper.style.position = 'relative';
@@ -82,9 +91,15 @@ declare global {
         if (h > 0) iframe.style.height = `${h}px`;
       }
     }
-    window.addEventListener('message', onMessage);
+      window.addEventListener('message', onMessage);
+      console.log('OFACalculator: iframe created and message listener attached');
+    } catch (error) {
+      console.error('OFACalculator: Error initializing:', error);
+      throw error;
+    }
   }
   window.OFACalculator = { init };
+  console.log('OFACalculator: full-oia loader script loaded');
 })();
 
 // Make this file a module so global augmentation works
