@@ -1008,13 +1008,6 @@ export default function FullOIAPage() {
           gap: 32px;
         }
         
-        /* Tablet: Content view wider (60/40) */
-        @media (max-width: 1024px) {
-          .two-column-layout {
-            grid-template-columns: 1.5fr 1fr;
-          }
-        }
-        
         /* Mobile: Stack vertically */
         @media (max-width: 768px) {
           .two-column-layout {
