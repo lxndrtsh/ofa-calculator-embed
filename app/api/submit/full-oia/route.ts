@@ -5,6 +5,7 @@ import { getWebsiteUrl } from '../../utils/db';
 import { generateImpactPDFInitial, generateImpactPDFExpanded, generateImpactPDFFull } from '../../utils/pdfGenerator';
 import { uploadToSpaces } from '../../utils/spacesUpload';
 import { sendToHubSpot } from '../../utils/hubspot';
+import { sendToReferralTool } from '../../utils/referralTool';
 
 interface PopulationData {
   Area_Name: string;
@@ -406,7 +407,29 @@ export async function POST(req: Request) {
       console.log('HubSpot integration disabled for this submission');
     }
 
-    // TODO: Add Referral Tool integration here
+    // Send to Referral Tool (if referral code is valid)
+    try {
+      const referralResult = await sendToReferralTool(req, referralToken, {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        phone: form.phone,
+        company: form.company,
+        city: form.city,
+        state: form.state,
+        county: form.county,
+        title: form.title,
+      });
+      
+      if (referralResult.success) {
+        console.log('Referral tool: Lead sent successfully');
+      } else {
+        console.log('Referral tool: Skipped or failed', referralResult.error);
+      }
+    } catch (referralError) {
+      // Log error but don't fail the submission if referral tool call fails
+      console.error('Failed to send to referral tool:', referralError);
+    }
 
     // Send data to external API
     const websiteUrl = getWebsiteUrl(req);
