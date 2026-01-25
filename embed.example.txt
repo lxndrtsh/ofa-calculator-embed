@@ -1,0 +1,12 @@
+<script src="https://ofa-calculator-embed.vercel.app/cdn/leadcalc-full-oia.min.js"></script>
+<div id="ofa-full-oia"></div>
+<script>
+  OFACalculator.init('ofa-full-oia', {
+    apiBase: 'https://ofa-calculator-embed.vercel.app',
+    iframeBase: 'https://ofa-calculator-embed.vercel.app',
+    configVersion: '1.0.0',
+    theme: 'light',
+    referralCookie: 'referral',
+    hubspotIntegration: true
+  });
+</script>

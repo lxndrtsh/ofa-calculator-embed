@@ -3,6 +3,8 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { getWebsiteUrl } from '../../utils/db';
 import { sendToHubSpot } from '../../utils/hubspot';
+import { generateImpactPDFInitial, generateImpactPDFExpanded, generateImpactPDFFull } from '../../utils/pdfGenerator';
+import { uploadToSpaces } from '../../utils/spacesUpload';
 
 interface CommunityFormData {
   city: string;
@@ -172,6 +174,7 @@ export async function POST(req: Request) {
       year3WithORx,
       year2PeopleSaved,
       year3PeopleSaved,
+      population, // Add population field
     };
 
     // Calculate Impact Analysis metrics (for HubSpot, not displayed in UI)
@@ -221,6 +224,108 @@ export async function POST(req: Request) {
       // Continue without impact results
     }
 
+    // Generate and upload all 3 PDFs (initial, expanded, full)
+    // All forms (full-oia, impact, community) generate the same PDFs:
+    // - initial: Simplified view matching web results section
+    // - expanded: Initial layout + all data points in copy:value format
+    // - full: Complete data with both impact and community sections (when available)
+    // Note: Community form uses impact PDF functions since impact results are always calculated
+    const formDataForPDF = {
+      company: form.company,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      email: form.email,
+      state: form.state,
+      county: form.county,
+    };
+    
+    const timestamp = Date.now();
+    const companySlug = form.company.replace(/[^a-zA-Z0-9]/g, '-');
+    
+    let pdfUrlInitial: string | null = null;
+    let pdfUrlExpanded: string | null = null;
+    let pdfUrlFull: string | null = null;
+    
+    // Generate Initial PDF (simplified) - use impact PDF function with impact results
+    try {
+      const pdfBufferInitial = await generateImpactPDFInitial(formDataForPDF, impactResults || {
+        members: calculatedResults.members,
+        withRx: calculatedResults.withRx,
+        withORx: calculatedResults.withORx,
+        atRisk: calculatedResults.atRisk,
+        prescribers: calculatedResults.prescribers,
+        costPerMemberORx: 7500,
+        netCostPerMemberORx: 4000,
+        avgCareManagedCost: 4500,
+        savingsPerMember: 3000,
+        financialImpact: calculatedResults.withORx * 4000,
+        targetedSavings: calculatedResults.withORx * 3000,
+        targetedSavingsPercent: 75,
+      }, countyRate);
+      const fileNameInitial = `community-report-${companySlug}-initial-${timestamp}.pdf`;
+      const uploadResultInitial = await uploadToSpaces(pdfBufferInitial, fileNameInitial, 'application/pdf');
+      pdfUrlInitial = uploadResultInitial.url;
+      console.log('Initial PDF uploaded successfully:', pdfUrlInitial);
+    } catch (error) {
+      console.error('Failed to generate or upload Initial PDF:', error);
+    }
+    
+    // Generate Expanded PDF (all data points) - use impact PDF function with impact results
+    try {
+      const pdfBufferExpanded = await generateImpactPDFExpanded(formDataForPDF, impactResults || {
+        members: calculatedResults.members,
+        withRx: calculatedResults.withRx,
+        withORx: calculatedResults.withORx,
+        atRisk: calculatedResults.atRisk,
+        prescribers: calculatedResults.prescribers,
+        costPerMemberORx: 7500,
+        netCostPerMemberORx: 4000,
+        avgCareManagedCost: 4500,
+        savingsPerMember: 3000,
+        financialImpact: calculatedResults.withORx * 4000,
+        targetedSavings: calculatedResults.withORx * 3000,
+        targetedSavingsPercent: 75,
+      }, countyRate);
+      const fileNameExpanded = `community-report-${companySlug}-expanded-${timestamp}.pdf`;
+      const uploadResultExpanded = await uploadToSpaces(pdfBufferExpanded, fileNameExpanded, 'application/pdf');
+      pdfUrlExpanded = uploadResultExpanded.url;
+      console.log('Expanded PDF uploaded successfully:', pdfUrlExpanded);
+    } catch (error) {
+      console.error('Failed to generate or upload Expanded PDF:', error);
+    }
+    
+    // Generate Full PDF (expanded + community data) - only if both impact and community results exist
+    if (impactResults) {
+      try {
+        // Convert calculatedResults to CommunityResults format
+        const communityResultsForPDF = {
+          members: calculatedResults.members,
+          withRx: calculatedResults.withRx,
+          withORx: calculatedResults.withORx,
+          atRisk: calculatedResults.atRisk,
+          prescribers: calculatedResults.prescribers,
+          orxPer100: calculatedResults.orxPer100,
+          year2OrxPer100: calculatedResults.year2OrxPer100,
+          year3OrxPer100: calculatedResults.year3OrxPer100,
+          year2WithORx: calculatedResults.year2WithORx,
+          year3WithORx: calculatedResults.year3WithORx,
+          year2PeopleSaved: calculatedResults.year2PeopleSaved,
+          year3PeopleSaved: calculatedResults.year3PeopleSaved,
+          population: calculatedResults.population,
+        };
+        const pdfBufferFull = await generateImpactPDFFull(formDataForPDF, impactResults, communityResultsForPDF, countyRate);
+        const fileNameFull = `community-report-${companySlug}-full-${timestamp}.pdf`;
+        const uploadResultFull = await uploadToSpaces(pdfBufferFull, fileNameFull, 'application/pdf');
+        pdfUrlFull = uploadResultFull.url;
+        console.log('Full PDF uploaded successfully:', pdfUrlFull);
+      } catch (error) {
+        console.error('Failed to generate or upload Full PDF:', error);
+      }
+    }
+    
+    // Legacy pdfUrl for backward compatibility (use expanded as default)
+    const pdfUrl = pdfUrlExpanded;
+
     // Send to HubSpot (only if hubspotIntegration is explicitly true)
     if (hubspotIntegration === true) {
       try {
@@ -238,7 +343,10 @@ export async function POST(req: Request) {
           population: form.population,
           calculatedResults, // Community results
           impactResults, // Impact results (for HubSpot)
-          pdfUrl: null, // Community form doesn't generate PDFs yet
+          pdfUrl: pdfUrl, // Legacy field (expanded PDF)
+          pdfUrlInitial,
+          pdfUrlExpanded,
+          pdfUrlFull,
         });
         
         if (hubspotResult.success) {
@@ -286,6 +394,10 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       results: calculatedResults,
+      pdfUrl: pdfUrl, // Legacy field (expanded PDF)
+      pdfUrlInitial: pdfUrlInitial,
+      pdfUrlExpanded: pdfUrlExpanded,
+      pdfUrlFull: pdfUrlFull,
       message: 'Form submitted successfully',
     }, { status: 200 });
   } catch (error) {

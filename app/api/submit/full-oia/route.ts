@@ -313,6 +313,10 @@ export async function POST(req: Request) {
     }
 
     // Generate and upload all 3 PDFs (initial, expanded, full)
+    // All forms (full-oia, impact, community) generate the same PDFs:
+    // - initial: Simplified view matching web results section
+    // - expanded: Initial layout + all data points in copy:value format
+    // - full: Complete data with both impact and community sections (when available)
     const formDataForPDF = {
       company: form.company,
       firstName: form.firstName,
@@ -329,7 +333,7 @@ export async function POST(req: Request) {
     
     // Generate Initial PDF (simplified)
     try {
-      const pdfBufferInitial = await generateImpactPDFInitial(formDataForPDF, calculatedResults);
+      const pdfBufferInitial = await generateImpactPDFInitial(formDataForPDF, calculatedResults, countyRate);
       const fileNameInitial = `full-oia-report-${companySlug}-initial-${timestamp}.pdf`;
       const uploadResultInitial = await uploadToSpaces(pdfBufferInitial, fileNameInitial, 'application/pdf');
       pdfUrlInitial = uploadResultInitial.url;
@@ -340,7 +344,7 @@ export async function POST(req: Request) {
     
     // Generate Expanded PDF (all Impact data points)
     try {
-      const pdfBufferExpanded = await generateImpactPDFExpanded(formDataForPDF, calculatedResults);
+      const pdfBufferExpanded = await generateImpactPDFExpanded(formDataForPDF, calculatedResults, countyRate);
       const fileNameExpanded = `full-oia-report-${companySlug}-expanded-${timestamp}.pdf`;
       const uploadResultExpanded = await uploadToSpaces(pdfBufferExpanded, fileNameExpanded, 'application/pdf');
       pdfUrlExpanded = uploadResultExpanded.url;
@@ -352,7 +356,7 @@ export async function POST(req: Request) {
     // Generate Full PDF (expanded + community data) - only if community results exist
     if (communityResults) {
       try {
-        const pdfBufferFull = await generateImpactPDFFull(formDataForPDF, calculatedResults, communityResults);
+        const pdfBufferFull = await generateImpactPDFFull(formDataForPDF, calculatedResults, communityResults, countyRate);
         const fileNameFull = `full-oia-report-${companySlug}-full-${timestamp}.pdf`;
         const uploadResultFull = await uploadToSpaces(pdfBufferFull, fileNameFull, 'application/pdf');
         pdfUrlFull = uploadResultFull.url;
