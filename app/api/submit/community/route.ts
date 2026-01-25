@@ -365,6 +365,31 @@ export async function POST(req: Request) {
 
     // Send to Referral Tool (if referral code is valid)
     try {
+      // Build metadata object with all form data, calculations, and results
+      const metadata = {
+        form_type: 'community',
+        form_inputs: {
+          city: form.city,
+          state: form.state,
+          county: form.county,
+          population: form.population,
+          company: form.company,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: form.email,
+          phone: form.phone,
+          title: form.title,
+        },
+        calculated_results: calculatedResults,
+        impact_results: impactResults || null,
+        pdf_urls: {
+          pdfUrl: pdfUrl || null, // Legacy field
+          pdfUrlInitial: pdfUrlInitial || null,
+          pdfUrlExpanded: pdfUrlExpanded || null,
+          pdfUrlFull: pdfUrlFull || null,
+        },
+      };
+
       const referralResult = await sendToReferralTool(req, referralToken, {
         firstName: form.firstName,
         lastName: form.lastName,
@@ -375,7 +400,7 @@ export async function POST(req: Request) {
         state: form.state,
         county: form.county,
         title: form.title,
-      });
+      }, metadata);
       
       if (referralResult.success) {
         console.log('Referral tool: Lead sent successfully');

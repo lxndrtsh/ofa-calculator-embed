@@ -1,8 +1,24 @@
 'use client';
 import { useEffect, useRef } from 'react';
+
+// Helper to set a cookie
+function setCookie(name: string, value: string, days: number = 7) {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+}
+
 export default function DemoHost() {
   const impactInitialized = useRef(false);
   const fullOiaInitialized = useRef(false);
+  
+  // Set test referral cookie locally only
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      setCookie('referral', 'SRX25-TASH', 1); // Set for 1 day, only on localhost
+      console.log('Demo: Set test referral cookie "SRX25-TASH" for localhost testing');
+    }
+  }, []);
   
   useEffect(() => {
     // Initialize Impact form

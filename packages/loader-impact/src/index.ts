@@ -62,6 +62,7 @@ declare global {
     wrapper.appendChild(iframe);
     container.appendChild(wrapper);
     const referral = readCookie(opts.referralCookie!);
+    console.log('OFACalculator loader: Read referral cookie:', opts.referralCookie, 'value:', referral);
     function onMessage(ev: MessageEvent) {
       const allowed = new URL(opts.iframeBase!).origin;
       if (ev.origin !== allowed) return;

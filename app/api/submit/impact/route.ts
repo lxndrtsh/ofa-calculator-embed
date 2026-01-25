@@ -189,6 +189,8 @@ export async function POST(req: Request) {
   try {
     const body: SubmitBody = await req.json();
     const { form, referralToken, hubspotIntegration } = body;
+    
+    console.log('Impact submit: Received referralToken:', referralToken, 'type:', typeof referralToken);
 
     // Get config directly
     const config = getConfig('impact');
@@ -408,6 +410,32 @@ export async function POST(req: Request) {
 
     // Send to Referral Tool (if referral code is valid)
     try {
+      // Build metadata object with all form data, calculations, and results
+      const metadata = {
+        form_type: 'impact',
+        form_inputs: {
+          employees: form.employees,
+          planMembers: form.planMembers,
+          company: form.company,
+          city: form.city,
+          state: form.state,
+          county: form.county,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: form.email,
+          phone: form.phone,
+          title: form.title,
+        },
+        calculated_results: calculatedResults,
+        community_results: communityResults || null,
+        pdf_urls: {
+          pdfUrl: pdfUrl || null, // Legacy field
+          pdfUrlInitial: pdfUrlInitial || null,
+          pdfUrlExpanded: pdfUrlExpanded || null,
+          pdfUrlFull: pdfUrlFull || null,
+        },
+      };
+
       const referralResult = await sendToReferralTool(req, referralToken, {
         firstName: form.firstName,
         lastName: form.lastName,
@@ -418,7 +446,7 @@ export async function POST(req: Request) {
         state: form.state,
         county: form.county,
         title: form.title,
-      });
+      }, metadata);
       
       if (referralResult.success) {
         console.log('Referral tool: Lead sent successfully');
