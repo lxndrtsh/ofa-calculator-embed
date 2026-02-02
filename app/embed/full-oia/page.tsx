@@ -385,78 +385,6 @@ export default function FullOIAPage() {
       )}
 
       {/* <h2 style={{ marginBottom: '32px', fontSize: '2rem', fontWeight: '700' }}>Opioid Impact Estimate</h2> */}
-      
-      {/* Step Indicator - On its own row above the grid */}
-      <div className="step-indicator" style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        marginBottom: '32px',
-        paddingTop: '16px',
-        paddingBottom: '16px'
-      }}>
-            {[
-              { num: 1, label: 'Plan Information', icon: Building2 },
-              { num: 2, label: 'Contact Information', icon: User },
-              { num: 3, label: 'Impact Estimate', icon: FileText }
-            ].map(({ num, label, icon: Icon }, index) => {
-              const isCompleted = completedSteps.includes(num);
-              const isCurrent = step === num;
-              const isClickable = isCompleted || num < step;
-              const isLast = index === 2;
-              
-              return (
-                <div key={num} style={{ display: 'flex', alignItems: 'center', flex: isLast ? '0 0 auto' : '1' }}>
-                  <div
-                    onClick={() => handleStepClick(num)}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '8px',
-                      cursor: isClickable ? 'pointer' : 'default',
-                      opacity: isClickable ? 1 : 0.6,
-                      position: 'relative',
-                      zIndex: 2
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '50%',
-                        background: isCompleted ? '#22c55e' : isCurrent ? '#111' : '#ddd',
-                        color: isCompleted ? '#fff' : isCurrent ? '#fff' : '#666',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.2s',
-                        border: isCurrent ? '2px solid #111' : 'none'
-                      }}
-                    >
-                      {isCompleted ? <Check size={24} /> : <Icon size={24} />}
-                    </div>
-                    <div style={{ fontSize: '12px', textAlign: 'center', fontWeight: isCurrent ? '600' : '400' }}>
-                      {label}
-                    </div>
-                  </div>
-                  {!isLast && (
-                    <div
-                      style={{
-                        flex: 1,
-                        height: '2px',
-                        margin: '0 16px',
-                        marginTop: '-24px',
-                        background: completedSteps.includes(num) ? '#22c55e' : '#ddd',
-                        transition: 'background 0.2s',
-                        position: 'relative',
-                        zIndex: 1
-                      }}
-                    />
-                  )}
-                </div>
-              );
-            })}
-      </div>
 
       {/* 2-Column Layout */}
       <div className="two-column-layout" style={{ 
@@ -644,6 +572,77 @@ export default function FullOIAPage() {
         <div className="form-view" style={{ 
           position: 'relative'
         }}>
+          {/* Step Indicator - Inside right column */}
+          <div className="step-indicator" style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            marginBottom: '24px',
+            paddingBottom: '16px'
+          }}>
+            {[
+              { num: 1, label: 'Plan Information', icon: Building2 },
+              { num: 2, label: 'Contact Information', icon: User },
+              { num: 3, label: 'Impact Estimate', icon: FileText }
+            ].map(({ num, label, icon: Icon }, index) => {
+              const isCompleted = completedSteps.includes(num);
+              const isCurrent = step === num;
+              const isClickable = isCompleted || num < step;
+              const isLast = index === 2;
+              
+              return (
+                <div key={num} style={{ display: 'flex', alignItems: 'center', flex: isLast ? '0 0 auto' : '1' }}>
+                  <div
+                    onClick={() => handleStepClick(num)}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '8px',
+                      cursor: isClickable ? 'pointer' : 'default',
+                      opacity: isClickable ? 1 : 0.6,
+                      position: 'relative',
+                      zIndex: 2
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '50%',
+                        background: isCompleted ? '#22c55e' : isCurrent ? '#111' : '#ddd',
+                        color: isCompleted ? '#fff' : isCurrent ? '#fff' : '#666',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s',
+                        border: isCurrent ? '2px solid #111' : 'none'
+                      }}
+                    >
+                      {isCompleted ? <Check size={24} /> : <Icon size={24} />}
+                    </div>
+                    <div style={{ fontSize: '12px', textAlign: 'center', fontWeight: isCurrent ? '600' : '400' }}>
+                      {label}
+                    </div>
+                  </div>
+                  {!isLast && (
+                    <div
+                      style={{
+                        flex: 1,
+                        height: '2px',
+                        margin: '0 16px',
+                        marginTop: '-24px',
+                        background: completedSteps.includes(num) ? '#22c55e' : '#ddd',
+                        transition: 'background 0.2s',
+                        position: 'relative',
+                        zIndex: 1
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
           {/* Step 1: Basic Information */}
           {step === 1 && (
             <div style={{ display:'grid', gap:16 }}>
