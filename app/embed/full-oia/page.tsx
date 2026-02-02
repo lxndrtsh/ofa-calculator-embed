@@ -459,7 +459,7 @@ export default function FullOIAPage() {
                   {'exampleLabel' in currentContent ? currentContent.exampleLabel : ''}
                 </strong>
                 <img 
-                  src="/images/ExampleResult.png" 
+                  src="/images/ExampleResult2.png" 
                   alt="Example Result"
                   style={{
                     width: '100%',
