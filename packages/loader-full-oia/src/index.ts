@@ -34,6 +34,17 @@ declare global {
     const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([$()*+./?[\\\\]^{|}])/g, '\\$1') + '=([^;]*)'));
     return m ? decodeURIComponent(m[1]) : null;
   }
+  /** Read referral code from URL (utm_rcode, utm_refcode, utm_referral_code). Used when cookie is not set. */
+  function readReferralFromQuery(): string | null {
+    if (typeof window === 'undefined' || !window.location?.search) return null;
+    const q = new URLSearchParams(window.location.search);
+    const keys = ['utm_rcode', 'utm_refcode', 'utm_referral_code'];
+    for (const key of keys) {
+      const v = q.get(key);
+      if (v && String(v).trim()) return String(v).trim();
+    }
+    return null;
+  }
   function init(elOrId: HTMLElement|string, options: Options) {
     try {
       const opts = { ...DEFAULTS, ...options };
@@ -70,7 +81,11 @@ declare global {
     iframe.src = src.toString();
     wrapper.appendChild(iframe);
     container.appendChild(wrapper);
-    const referral = readCookie(opts.referralCookie!);
+    // Cookie first (host may set it from utm_rcode); fallback to URL so ?utm_rcode= works without a cookie
+    const referral = readCookie(opts.referralCookie!) ?? readReferralFromQuery();
+    if (referral) {
+      console.log('OFACalculator: referral token for boot:', referral);
+    }
     function onMessage(ev: MessageEvent) {
       const allowed = new URL(opts.iframeBase!).origin;
       if (ev.origin !== allowed) return;

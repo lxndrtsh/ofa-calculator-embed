@@ -191,6 +191,8 @@ export async function POST(req: Request) {
     const body: SubmitBody = await req.json();
     const { form, referralToken, hubspotIntegration } = body;
 
+    console.log('Full-OIA submit: referralToken:', referralToken, 'type:', typeof referralToken);
+
     // Get config directly
     const config = getConfig('full-oia');
 

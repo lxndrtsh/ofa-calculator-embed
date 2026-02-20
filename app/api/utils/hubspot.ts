@@ -54,10 +54,12 @@ export async function sendToHubSpot(data: HubSpotContactData): Promise<{ success
     if (data.firstName) contactProperties.firstname = data.firstName;
     if (data.lastName) contactProperties.lastname = data.lastName;
     if (data.phone) contactProperties.phone = data.phone;
-    if (data.company) contactProperties.company = data.company;
     if (data.city) contactProperties.city = data.city;
     if (data.state) contactProperties.state = data.state;
-    if (data.title) contactProperties.jobtitle = data.title;
+
+    // Calculator-specific contact properties (not default company/jobtitle)
+    if (data.company) contactProperties.calculator_input_company = data.company;
+    if (data.title) contactProperties.calculator_input_jobtitle = data.title;
 
     // Add form type
     contactProperties.calculator_form_type = data.formType;
