@@ -8,6 +8,7 @@ import { sendToHubSpot } from '../../utils/hubspot';
 import { sendToReferralTool } from '../../utils/referralTool';
 
 interface PopulationData {
+  State: string;
   Area_Name: string;
   Attribute: string;
   Value: number;
@@ -135,8 +136,9 @@ async function loadPopulationData(): Promise<PopulationData[]> {
   try {
     const filePath = join(process.cwd(), 'app', 'data', 'county-population.json');
     const fileContents = await readFile(filePath, 'utf8');
-    populationDataCache = JSON.parse(fileContents);
-    return populationDataCache || [];
+    const raw = JSON.parse(fileContents) as PopulationData[];
+    populationDataCache = (raw || []).filter(row => row.Attribute === 'POP_ESTIMATE_2023');
+    return populationDataCache;
   } catch (error) {
     console.error('Failed to load population data:', error);
     return [];
@@ -170,10 +172,10 @@ async function getCountyPopulation(state: string, county: string): Promise<numbe
     const normalizedSearchCounty = normalizeCountyName(county);
     
     const countyEntry = data.find(entry => {
+      if (entry.State !== state.toUpperCase()) return false;
       const areaName = entry.Area_Name;
       const isCounty = /(County|Parish|Borough|Municipality|City)$/i.test(areaName);
       if (!isCounty) return false;
-      if (entry.Attribute !== 'POP_ESTIMATE_2023') return false;
       const normalizedAreaName = normalizeCountyName(areaName);
       return normalizedAreaName === normalizedSearchCounty;
     });

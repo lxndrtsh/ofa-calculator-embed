@@ -3,6 +3,7 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 
 interface PopulationData {
+  State: string;
   Area_Name: string;
   Attribute: string;
   Value: number;
@@ -35,8 +36,9 @@ async function loadPopulationData(): Promise<PopulationData[]> {
   try {
     const filePath = join(process.cwd(), 'app', 'data', 'county-population.json');
     const fileContents = await readFile(filePath, 'utf8');
-    populationDataCache = JSON.parse(fileContents);
-    return populationDataCache || [];
+    const raw = JSON.parse(fileContents) as PopulationData[];
+    populationDataCache = (raw || []).filter(row => row.Attribute === 'POP_ESTIMATE_2023');
+    return populationDataCache;
   } catch (error) {
     console.error('Failed to load population data:', error);
     return [];
@@ -72,24 +74,16 @@ export async function GET(req: Request) {
     
     const normalizedSearchCounty = normalizeCountyName(countyName);
     
-    // Find the county entry matching the county name
-    // Note: The population data doesn't have explicit state info per entry,
-    // but county names are typically unique enough, and user has selected state+county
+    // Find the county entry matching state + county name (data is pre-filtered to POP_ESTIMATE_2023)
     const countyEntry = data.find(entry => {
+      if (entry.State !== stateAbbrev.toUpperCase()) {
+        return false;
+      }
       const areaName = entry.Area_Name;
-      
-      // Skip state entries (they don't have county-like suffixes)
       const isCounty = /(County|Parish|Borough|Municipality|City)$/i.test(areaName);
       if (!isCounty) {
         return false;
       }
-      
-      // Must be a population estimate
-      if (entry.Attribute !== 'POP_ESTIMATE_2023') {
-        return false;
-      }
-      
-      // Normalize and compare county names
       const normalizedAreaName = normalizeCountyName(areaName);
       return normalizedAreaName === normalizedSearchCounty;
     });
