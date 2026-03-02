@@ -345,7 +345,7 @@ export default function MathCheckerImpactPage() {
               6. Prescribers Identified
             </div>
             <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: '#666', marginBottom: '8px' }}>
-              prescribers = atRisk × prescriber_non_cdc_rate = {formatNumber(atRisk)} × {formatPercent(config?.math.prescriber_non_cdc_rate || 0.9)}
+              prescribers = atRisk × prescriber_non_cdc_rate = {formatNumber(atRisk)} × {formatPercent(config?.math.prescriber_non_cdc_rate || 1.4)}
             </div>
             <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#111' }}>
               = {formatNumber(prescribers)}

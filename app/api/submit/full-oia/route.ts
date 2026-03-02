@@ -53,7 +53,7 @@ function getConfig(formType: 'impact' | 'community' | 'full-oia') {
         rx_rate: 0.5,
         opioid_rx_rate: 0.2,
         at_risk_rate: 0.3,
-        prescriber_non_cdc_rate: 0.9,
+        prescriber_non_cdc_rate: 1.4,
         year2_decrease_rate: 0.24,
         year3_decrease_rate: 0.35,
         default_orx_per_100: 10.0
@@ -71,7 +71,7 @@ function getConfig(formType: 'impact' | 'community' | 'full-oia') {
       rx_rate: 0.5,
       opioid_rx_rate: 0.2,
       at_risk_rate: 0.3,
-      prescriber_non_cdc_rate: 0.9,
+      prescriber_non_cdc_rate: 1.4,
       avg_med_claim_usd: 4000
     }
   };

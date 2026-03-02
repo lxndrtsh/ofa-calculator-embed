@@ -101,7 +101,7 @@ export function OIAForm({ onStepChange }: OIAFormProps) {
   const opioidRxRate = (apiResults?.opioidRxRate as number) ?? (countyRate !== null ? convertRateToOpioidRxRate(countyRate) : (math?.opioid_rx_rate ?? 0.2)) ?? 0.2;
   const withORx = (apiResults?.withORx as number) ?? (math ? Math.round(withRx * opioidRxRate) : 0);
   const atRisk = (apiResults?.atRisk as number) ?? (math ? Math.round(withORx * (math.at_risk_rate ?? 0.3)) : 0);
-  const prescribers = (apiResults?.prescribers as number) ?? (math ? Math.round(atRisk * (math.prescriber_non_cdc_rate ?? 0.9)) : 0);
+  const prescribers = (apiResults?.prescribers as number) ?? (math ? Math.round(atRisk * (math.prescriber_non_cdc_rate ?? 1.4)) : 0);
 
   const costPerMemberORx = (apiResults?.costPerMemberORx as number) ?? 7500;
   const netCostPerMemberORx = (apiResults?.netCostPerMemberORx as number) ?? 4000;

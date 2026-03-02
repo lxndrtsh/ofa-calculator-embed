@@ -10,7 +10,7 @@ export async function GET(req: Request) {
     rx_rate: 0.5,
     opioid_rx_rate: 0.2,
     at_risk_rate: 0.3,
-    prescriber_non_cdc_rate: 0.9,
+    prescriber_non_cdc_rate: 1.4,
     avg_med_claim_usd: 4000
   };
   
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     rx_rate: 0.5, // 50% of residents with ANY prescription
     opioid_rx_rate: 0.2, // 20% of residents with Rx (default, may be overridden by county data)
     at_risk_rate: 0.3, // 30% of residents with ORx are at risk
-    prescriber_non_cdc_rate: 0.9, // 90% of at-risk members have prescribers (for prescriber calculation)
+    prescriber_non_cdc_rate: 1.4, // 1.4x at-risk members for prescriber calculation
     year2_decrease_rate: 0.24, // 24% decrease in ORx/100 rate by Year 2
     year3_decrease_rate: 0.35, // 35% decrease in ORx/100 rate by Year 3
     default_orx_per_100: 10.0 // Default ORx/100 rate if county not found in dataset
@@ -53,7 +53,7 @@ POTENTIAL FUTURE CONFIG BASED ON REVIEW OF THE REAL IMPACT ANALYSIS
       },
       "risk": {
         "at_risk_rate": 0.3,
-        "prescriber_non_cdc_rate": 0.9
+        "prescriber_non_cdc_rate": 1.4
       },
       "cost": {
         "orx_case_cost": 7500,

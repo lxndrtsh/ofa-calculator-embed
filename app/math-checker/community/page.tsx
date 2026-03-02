@@ -350,7 +350,7 @@ export default function MathCheckerCommunityPage() {
               6. Prescribers Identified
             </div>
             <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: '#666', marginBottom: '8px' }}>
-              prescribers = atRisk × prescriber_non_cdc_rate = {formatNumber(atRisk)} × {(config?.math.prescriber_non_cdc_rate * 100 || 90).toFixed(0)}%
+              prescribers = atRisk × prescriber_non_cdc_rate = {formatNumber(atRisk)} × {(config?.math.prescriber_non_cdc_rate * 100 || 140).toFixed(0)}%
             </div>
             <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#111' }}>
               = {formatNumber(prescribers)}

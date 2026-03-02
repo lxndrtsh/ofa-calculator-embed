@@ -11,7 +11,7 @@ export async function GET(req) {
             rx_rate: 0.5,
             opioid_rx_rate: 0.2,
             at_risk_rate: 0.3,
-            prescriber_non_cdc_rate: 0.9,
+            prescriber_non_cdc_rate: 1.4,
             avg_med_claim_usd: 4000
         }
     }, { headers: { 'Cache-Control': 'public, max-age=60' } });
@@ -29,7 +29,7 @@ POTENTIAL FUTURE CONFIG BASED ON REVIEW OF THE REAL IMPACT ANALYSIS
       },
       "risk": {
         "at_risk_rate": 0.3,
-        "prescriber_non_cdc_rate": 0.9
+        "prescriber_non_cdc_rate": 1.4
       },
       "cost": {
         "orx_case_cost": 7500,
