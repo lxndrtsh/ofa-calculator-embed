@@ -58,6 +58,7 @@ export async function sendToHubSpot(data: HubSpotContactData): Promise<{ success
     if (data.state) contactProperties.state = data.state;
 
     // Calculator-specific contact properties (not default company/jobtitle)
+    if (data.city) contactProperties.calculator_input_city = data.city;
     if (data.company) contactProperties.calculator_input_company = data.company;
     if (data.title) contactProperties.calculator_input_jobtitle = data.title;
     if (data.state) contactProperties.calculator_input_state = data.state;
