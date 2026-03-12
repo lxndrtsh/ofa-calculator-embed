@@ -30,6 +30,26 @@ interface HubSpotContactData {
   population?: string;
 }
 
+function toTwoDecimals(value: unknown): unknown {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return Number(value.toFixed(2));
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return value;
+    const parsed = Number.parseFloat(trimmed);
+    if (Number.isNaN(parsed)) return value;
+    return Number(parsed.toFixed(2));
+  }
+
+  return value;
+}
+
 /**
  * Upserts a contact in HubSpot by email
  * Creates a new contact if not found, updates existing if found
@@ -85,14 +105,20 @@ export async function sendToHubSpot(data: HubSpotContactData): Promise<{ success
       // Financial results (from Impact calculations)
       if (results.financialImpact !== undefined) contactProperties.calculator_results_financial_impact = results.financialImpact;
       if (results.targetedSavings !== undefined) contactProperties.calculator_results_targeted_savings = results.targetedSavings;
-      if (results.targetedSavingsPercent !== undefined) contactProperties.calculator_results_targeted_savings_percentage = results.targetedSavingsPercent;
+      if (results.targetedSavingsPercent !== undefined) {
+        contactProperties.calculator_results_targeted_savings_percentage = toTwoDecimals(results.targetedSavingsPercent);
+      }
       
       // Math constants and rates
-      if (results.opioidRxRate !== undefined) contactProperties.calculator_input_orx_rate = results.opioidRxRate;
-      if (results.countyRatePer100 !== undefined && results.countyRatePer100 !== null) {
-        contactProperties.calculator_input_county_rate_per_100 = results.countyRatePer100;
+      if (results.opioidRxRate !== undefined) {
+        contactProperties.calculator_input_orx_rate = toTwoDecimals(results.opioidRxRate);
       }
-      if (results.usedCountyRate !== undefined) contactProperties.calculator_input_used_county_rate = results.usedCountyRate;
+      if (results.countyRatePer100 !== undefined && results.countyRatePer100 !== null) {
+        contactProperties.calculator_input_county_rate_per_100 = toTwoDecimals(results.countyRatePer100);
+      }
+      if (results.usedCountyRate !== undefined) {
+        contactProperties.calculator_input_used_county_rate = toTwoDecimals(results.usedCountyRate);
+      }
       
       // Additional Impact-specific fields
       if (results.avgClaim !== undefined) contactProperties.calculator_results_avg_claim = results.avgClaim;
@@ -111,14 +137,22 @@ export async function sendToHubSpot(data: HubSpotContactData): Promise<{ success
       if (community.withORx !== undefined) contactProperties.calculator_community_orx_count = community.withORx;
       if (community.atRisk !== undefined) contactProperties.calculator_community_at_risk_count = community.atRisk;
       if (community.prescribers !== undefined) contactProperties.calculator_community_prescribers_identified = community.prescribers;
-      if (community.orxPer100 !== undefined) contactProperties.calculator_community_orx_per_100 = community.orxPer100;
-      if (community.year2OrxPer100 !== undefined) contactProperties.calculator_community_year2_orx_per_100 = community.year2OrxPer100;
-      if (community.year3OrxPer100 !== undefined) contactProperties.calculator_community_year3_orx_per_100 = community.year3OrxPer100;
+      if (community.orxPer100 !== undefined) {
+        contactProperties.calculator_community_orx_per_100 = toTwoDecimals(community.orxPer100);
+      }
+      if (community.year2OrxPer100 !== undefined) {
+        contactProperties.calculator_community_year2_orx_per_100 = toTwoDecimals(community.year2OrxPer100);
+      }
+      if (community.year3OrxPer100 !== undefined) {
+        contactProperties.calculator_community_year3_orx_per_100 = toTwoDecimals(community.year3OrxPer100);
+      }
       if (community.year2WithORx !== undefined) contactProperties.calculator_community_year2_with_orx = community.year2WithORx;
       if (community.year3WithORx !== undefined) contactProperties.calculator_community_year3_with_orx = community.year3WithORx;
       if (community.year2PeopleSaved !== undefined) contactProperties.calculator_community_year2_people_saved = community.year2PeopleSaved;
       if (community.year3PeopleSaved !== undefined) contactProperties.calculator_community_year3_people_saved = community.year3PeopleSaved;
-      if (community.usedCountyRate !== undefined) contactProperties.calculator_community_used_county_rate = community.usedCountyRate;
+      if (community.usedCountyRate !== undefined) {
+        contactProperties.calculator_community_used_county_rate = toTwoDecimals(community.usedCountyRate);
+      }
     }
 
     // Add impact results if provided (for community form that also calculates impact metrics)
@@ -134,14 +168,20 @@ export async function sendToHubSpot(data: HubSpotContactData): Promise<{ success
       // Financial results
       if (impact.financialImpact !== undefined) contactProperties.calculator_impact_financial_impact = impact.financialImpact;
       if (impact.targetedSavings !== undefined) contactProperties.calculator_impact_targeted_savings = impact.targetedSavings;
-      if (impact.targetedSavingsPercent !== undefined) contactProperties.calculator_impact_targeted_savings_percentage = impact.targetedSavingsPercent;
+      if (impact.targetedSavingsPercent !== undefined) {
+        contactProperties.calculator_impact_targeted_savings_percentage = toTwoDecimals(impact.targetedSavingsPercent);
+      }
       
       // Math constants and rates
-      if (impact.opioidRxRate !== undefined) contactProperties.calculator_impact_orx_rate = impact.opioidRxRate;
-      if (impact.countyRatePer100 !== undefined && impact.countyRatePer100 !== null) {
-        contactProperties.calculator_impact_county_rate_per_100 = impact.countyRatePer100;
+      if (impact.opioidRxRate !== undefined) {
+        contactProperties.calculator_impact_orx_rate = toTwoDecimals(impact.opioidRxRate);
       }
-      if (impact.usedCountyRate !== undefined) contactProperties.calculator_impact_used_county_rate = impact.usedCountyRate;
+      if (impact.countyRatePer100 !== undefined && impact.countyRatePer100 !== null) {
+        contactProperties.calculator_impact_county_rate_per_100 = toTwoDecimals(impact.countyRatePer100);
+      }
+      if (impact.usedCountyRate !== undefined) {
+        contactProperties.calculator_impact_used_county_rate = toTwoDecimals(impact.usedCountyRate);
+      }
       
       // Additional Impact-specific fields
       if (impact.avgClaim !== undefined) contactProperties.calculator_impact_avg_claim = impact.avgClaim;

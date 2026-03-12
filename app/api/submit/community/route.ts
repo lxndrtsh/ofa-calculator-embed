@@ -342,8 +342,9 @@ export async function POST(req: Request) {
           title: form.title,
           formType: 'community',
           population: form.population,
-          calculatedResults, // Community results
-          impactResults, // Impact results (for HubSpot)
+          calculatedResults, // Primary results (mapped to calculator_results_*)
+          communityResults: calculatedResults, // Same data → calculator_community_* (was missing, caused low fill rate)
+          impactResults, // Impact results (calculator_impact_*)
           pdfUrl: pdfUrl, // Legacy field (expanded PDF)
           pdfUrlInitial,
           pdfUrlExpanded,
