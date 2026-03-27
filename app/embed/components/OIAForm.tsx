@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatPhoneNumber, cleanPhoneNumber, formatNumberWithCommas, cleanNumber } from '../utils/inputMask';
 import { Building2, User, FileText, Check } from 'lucide-react';
 import { US_STATES, getCountiesForState, getCountyRate, convertRateToOpioidRxRate } from '../utils/countyData';
+import { MIN_ELIGIBLE_COUNT, MIN_ELIGIBLE_COUNT_MESSAGE } from '../../../lib/embedEligibility';
 
 type Boot = { apiBase: string; configVersion: string; theme: 'light'|'dark'|string; referralToken: string|null; hubspotIntegration?: boolean };
 
@@ -50,6 +51,7 @@ export function OIAForm({ onStepChange }: OIAFormProps) {
   const [counties, setCounties] = useState<Array<{ value: string; label: string }>>([]);
   const [countyRate, setCountyRate] = useState<number | null>(null);
   const [apiResults, setApiResults] = useState<Record<string, unknown> | null>(null);
+  const [minEligibleError, setMinEligibleError] = useState<string | null>(null);
   const submittedForStep3Ref = useRef(false);
 
   useEffect(() => setMounted(true), []);
@@ -112,6 +114,14 @@ export function OIAForm({ onStepChange }: OIAFormProps) {
 
   const handleSubmit = useCallback(async () => {
     if (submitting) return;
+    const planN = Number(cleanNumber(form.planMembers || '0'));
+    if (planN < MIN_ELIGIBLE_COUNT) {
+      submittedForStep3Ref.current = false;
+      setSubmitting(false);
+      setStep(1);
+      setMinEligibleError(MIN_ELIGIBLE_COUNT_MESSAGE);
+      return;
+    }
     const apiBase = boot?.apiBase || (typeof window !== 'undefined' ? window.location.origin : '');
     setSubmitting(true);
     try {
@@ -153,11 +163,14 @@ export function OIAForm({ onStepChange }: OIAFormProps) {
     if (step !== 3) submittedForStep3Ref.current = false;
   }, [step, submitting, submitted, handleSubmit]);
 
-  const validateStep1 = () => {
+  const validateStep1Basic = () => {
     const planMembersCleaned = cleanNumber(form.planMembers || '');
     const hasPlanMembers = planMembersCleaned && Number(planMembersCleaned) > 0;
     return hasPlanMembers && form.company.trim() !== '';
   };
+
+  const step1MeetsMinimum = () =>
+    Number(cleanNumber(form.planMembers || '0')) >= MIN_ELIGIBLE_COUNT;
 
   const validateStep2 = () =>
     form.firstName.trim() !== '' &&
@@ -166,10 +179,19 @@ export function OIAForm({ onStepChange }: OIAFormProps) {
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
 
   const handlePhoneChange = (value: string) => setForm(f => ({ ...f, phone: formatPhoneNumber(value) }));
-  const handlePlanMembersChange = (value: string) => setForm(f => ({ ...f, planMembers: formatNumberWithCommas(value) }));
+  const handlePlanMembersChange = (value: string) => {
+    setMinEligibleError(null);
+    setForm(f => ({ ...f, planMembers: formatNumberWithCommas(value) }));
+  };
 
   const handleNext = () => {
-    if (step === 1 && validateStep1()) {
+    if (step === 1) {
+      setMinEligibleError(null);
+      if (!validateStep1Basic()) return;
+      if (!step1MeetsMinimum()) {
+        setMinEligibleError(MIN_ELIGIBLE_COUNT_MESSAGE);
+        return;
+      }
       setCompletedSteps([1]);
       setStep(2);
     } else if (step === 2 && validateStep2()) {
@@ -302,6 +324,22 @@ export function OIAForm({ onStepChange }: OIAFormProps) {
             <h3 style={{ marginBottom: 12, fontSize: '1.75rem', fontWeight: 700, marginTop: 0 }}>Plan Information</h3>
             <p style={{ color: '#333', fontSize: '1rem', margin: 0, lineHeight: 1.5 }}>Tell us about your health plan so we can generate a personalized impact analysis.</p>
           </div>
+          {minEligibleError && (
+            <div
+              role="alert"
+              style={{
+                padding: 12,
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: 8,
+                color: '#991b1b',
+                fontSize: '0.95rem',
+                lineHeight: 1.5,
+              }}
+            >
+              {minEligibleError}
+            </div>
+          )}
           <label>
             <span style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 8 }}>Number of Plan Members *</span>
             <input type="text" inputMode="numeric" value={form.planMembers} onChange={e => handlePlanMembersChange(e.target.value)} placeholder="e.g., 25,000" autoComplete="off" />
@@ -411,11 +449,11 @@ export function OIAForm({ onStepChange }: OIAFormProps) {
           <button
             type="button"
             onClick={handleNext}
-            disabled={(step === 1 && !validateStep1()) || (step === 2 && !validateStep2())}
+            disabled={(step === 1 && !validateStep1Basic()) || (step === 2 && !validateStep2())}
             style={{
               padding: '10px 20px', border: 0, borderRadius: 8, background: '#111', color: 'white',
-              cursor: ((step === 1 && !validateStep1()) || (step === 2 && !validateStep2())) ? 'not-allowed' : 'pointer',
-              opacity: ((step === 1 && !validateStep1()) || (step === 2 && !validateStep2())) ? 0.5 : 1
+              cursor: ((step === 1 && !validateStep1Basic()) || (step === 2 && !validateStep2())) ? 'not-allowed' : 'pointer',
+              opacity: ((step === 1 && !validateStep1Basic()) || (step === 2 && !validateStep2())) ? 0.5 : 1
             }}
           >
             {step === 2 ? 'Submit' : 'Next'}

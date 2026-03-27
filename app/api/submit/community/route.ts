@@ -1,4 +1,9 @@
 import { NextResponse } from 'next/server';
+import {
+  MIN_ELIGIBLE_COUNT,
+  MIN_ELIGIBLE_COUNT_MESSAGE,
+  parseFormCount,
+} from '../../../../lib/embedEligibility';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { getWebsiteUrl } from '../../utils/db';
@@ -106,6 +111,14 @@ export async function POST(req: Request) {
     const body: SubmitBody = await req.json();
     const { form, referralToken, hubspotIntegration } = body;
 
+    const population = parseFormCount(form.population);
+    if (population < MIN_ELIGIBLE_COUNT) {
+      return NextResponse.json(
+        { ok: false, error: MIN_ELIGIBLE_COUNT_MESSAGE },
+        { status: 400 }
+      );
+    }
+
     // Get config directly
     const config = getConfig('community');
 
@@ -113,7 +126,6 @@ export async function POST(req: Request) {
     const countyRate = await getCountyRate(form.state, form.county);
 
     // Perform calculations
-    const population = Number(form.population || '0');
     const members = population;
     const withRx = Math.round(members * config.math.rx_rate);
     

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { formatPhoneNumber, cleanPhoneNumber } from '../utils/inputMask';
+import { MIN_ELIGIBLE_COUNT, MIN_ELIGIBLE_COUNT_MESSAGE, parseFormCount } from '../../../lib/embedEligibility';
 import { MapPin, User, FileText, Check } from 'lucide-react';
 import { US_STATES, getCountiesForState, getCountyRate, convertRateToOpioidRxRate } from '../utils/countyData';
 
@@ -61,7 +62,8 @@ export default function CommunityPage() {
   const [countyPopulation, setCountyPopulation] = useState<number | null>(null);
   const [populationFound, setPopulationFound] = useState(false);
   const [manualPopulationEntry, setManualPopulationEntry] = useState(false);
-  
+  const [minEligibleError, setMinEligibleError] = useState<string | null>(null);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -157,7 +159,7 @@ export default function CommunityPage() {
   }, [form.state, form.county, boot]);
 
   // Use API results if available, otherwise calculate for preview (before submit)
-  const pop = Number(form.population || 0);
+  const pop = parseFormCount(form.population);
   const members = apiResults?.members ?? pop;
   const withRx = apiResults?.withRx ?? (cfg ? Math.round(members * cfg.math.rx_rate) : 0);
   
@@ -212,13 +214,15 @@ export default function CommunityPage() {
   
   const prescribers = apiResults?.prescribers ?? (cfg ? Math.round(atRisk * cfg.math.prescriber_non_cdc_rate) : 0);
 
-  // Step validation
-  const validateStep1 = () => {
-    return form.state.trim() !== '' && 
-           form.county.trim() !== '' && 
-           form.population && 
-           Number(form.population) > 0;
+  const validateStep1Basic = () => {
+    return (
+      form.state.trim() !== '' &&
+      form.county.trim() !== '' &&
+      parseFormCount(form.population) > 0
+    );
   };
+
+  const step1MeetsMinimum = () => parseFormCount(form.population) >= MIN_ELIGIBLE_COUNT;
 
   const validateStep2 = () => {
     return form.firstName.trim() !== '' && 
@@ -233,7 +237,13 @@ export default function CommunityPage() {
   };
 
   const handleNext = () => {
-    if (step === 1 && validateStep1()) {
+    if (step === 1) {
+      setMinEligibleError(null);
+      if (!validateStep1Basic()) return;
+      if (!step1MeetsMinimum()) {
+        setMinEligibleError(MIN_ELIGIBLE_COUNT_MESSAGE);
+        return;
+      }
       setCompletedSteps([1]);
       setStep(2);
     } else if (step === 2 && validateStep2()) {
@@ -257,6 +267,13 @@ export default function CommunityPage() {
 
   const handleSubmit = async () => {
     if (submitting) return;
+
+    if (parseFormCount(form.population) < MIN_ELIGIBLE_COUNT) {
+      setStep(1);
+      setMinEligibleError(MIN_ELIGIBLE_COUNT_MESSAGE);
+      return;
+    }
+
     setSubmitting(true);
     
     try {
@@ -459,6 +476,22 @@ export default function CommunityPage() {
               Tell us about your community so we can generate a personalized impact analysis.
             </p>
           </div>
+          {minEligibleError && (
+            <div
+              role="alert"
+              style={{
+                padding: 12,
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: 8,
+                color: '#991b1b',
+                fontSize: '0.95rem',
+                lineHeight: 1.5,
+              }}
+            >
+              {minEligibleError}
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <label>
               <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px', display: 'block' }}>Primary Business City</span>
@@ -477,6 +510,7 @@ export default function CommunityPage() {
                   const newState = e.target.value;
                   const apiBase = boot?.apiBase || (typeof window !== 'undefined' ? window.location.origin : '');
                   console.log('State changed to:', newState, 'boot:', !!boot, 'apiBase:', apiBase);
+                  setMinEligibleError(null);
                   setForm({...form, state:newState, county:''});
                 }}
                 required
@@ -493,7 +527,10 @@ export default function CommunityPage() {
               <span style={{ fontSize: '1.125rem', fontWeight: '700', marginBottom: '8px', display: 'block' }}>Primary Business County *</span>
               <select
                 value={form.county} 
-                onChange={e=>setForm({...form, county:e.target.value})}
+                onChange={e => {
+                  setMinEligibleError(null);
+                  setForm({ ...form, county: e.target.value });
+                }}
                 disabled={!form.state}
                 required
                 style={{ 
@@ -555,7 +592,10 @@ export default function CommunityPage() {
                   type="number" 
                   min={1} 
                   value={form.population} 
-                  onChange={e=>setForm({...form, population:e.target.value})} 
+                  onChange={e => {
+                    setMinEligibleError(null);
+                    setForm({ ...form, population: e.target.value });
+                  }}
                   required
                   placeholder={form.county === 'County Not Listed' ? "Enter county population" : (populationFound ? "Enter population manually" : "Enter county population")}
                   autoComplete="off"
@@ -789,7 +829,7 @@ export default function CommunityPage() {
             type="button" 
             onClick={handleNext}
             disabled={
-              (step === 1 && !validateStep1()) || 
+              (step === 1 && !validateStep1Basic()) || 
               (step === 2 && !validateStep2())
             }
             style={{ 
@@ -799,11 +839,11 @@ export default function CommunityPage() {
               background:'#111', 
               color:'white',
               cursor: (
-                (step === 1 && !validateStep1()) || 
+                (step === 1 && !validateStep1Basic()) || 
                 (step === 2 && !validateStep2())
               ) ? 'not-allowed' : 'pointer',
               opacity: (
-                (step === 1 && !validateStep1()) || 
+                (step === 1 && !validateStep1Basic()) || 
                 (step === 2 && !validateStep2())
               ) ? 0.5 : 1
             }}

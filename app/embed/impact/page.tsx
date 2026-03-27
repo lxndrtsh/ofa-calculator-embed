@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { formatPhoneNumber, cleanPhoneNumber, formatNumberWithCommas, cleanNumber } from '../utils/inputMask';
 import { Building2, User, FileText, Check, Users, Search, DollarSign, TrendingDown, Coins, PiggyBank, CheckCircle2, Circle } from 'lucide-react';
 import { US_STATES, getCountiesForState, getCountyRate, convertRateToOpioidRxRate } from '../utils/countyData';
+import { MIN_ELIGIBLE_COUNT, MIN_ELIGIBLE_COUNT_MESSAGE } from '../../../lib/embedEligibility';
 
 // Force dynamic rendering to avoid hydration issues in iframe
 export const dynamic = 'force-dynamic';
@@ -60,7 +61,8 @@ export default function ImpactPage() {
   const [counties, setCounties] = useState<Array<{ value: string; label: string }>>([]);
   const [countyRate, setCountyRate] = useState<number | null>(null);
   const [apiResults, setApiResults] = useState<any>(null);
-  
+  const [minEligibleError, setMinEligibleError] = useState<string | null>(null);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -156,15 +158,21 @@ export default function ImpactPage() {
     }
   }, [step, submitting, submitted]);
 
-  // Step validation
-  const validateStep1 = () => {
+  // Step validation (minimum headcount checked separately so we can show a specific message)
+  const validateStep1Basic = () => {
     const employeesCleaned = cleanNumber(form.employees || '');
     const planMembersCleaned = cleanNumber(form.planMembers || '');
     const hasEmployees = employeesCleaned && Number(employeesCleaned) > 0;
     const hasPlanMembers = planMembersCleaned && Number(planMembersCleaned) > 0;
-    // Validate based on which field is currently shown
     const hasRequiredField = showPlanMembers ? hasPlanMembers : hasEmployees;
     return hasRequiredField && form.company.trim() !== '';
+  };
+
+  const step1MeetsMinimum = () => {
+    const planMembersInput = Number(cleanNumber(form.planMembers || '0'));
+    const employees = Number(cleanNumber(form.employees || '0'));
+    if (showPlanMembers) return planMembersInput >= MIN_ELIGIBLE_COUNT;
+    return employees >= MIN_ELIGIBLE_COUNT;
   };
 
   const validateStep2 = () => {
@@ -180,17 +188,25 @@ export default function ImpactPage() {
   };
 
   const handleEmployeesChange = (value: string) => {
+    setMinEligibleError(null);
     const formatted = formatNumberWithCommas(value);
     setForm({...form, employees: formatted});
   };
 
   const handlePlanMembersChange = (value: string) => {
+    setMinEligibleError(null);
     const formatted = formatNumberWithCommas(value);
     setForm({...form, planMembers: formatted});
   };
 
   const handleNext = () => {
-    if (step === 1 && validateStep1()) {
+    if (step === 1) {
+      setMinEligibleError(null);
+      if (!validateStep1Basic()) return;
+      if (!step1MeetsMinimum()) {
+        setMinEligibleError(MIN_ELIGIBLE_COUNT_MESSAGE);
+        return;
+      }
       setCompletedSteps([1]);
       setStep(2);
     } else if (step === 2 && validateStep2()) {
@@ -262,7 +278,15 @@ export default function ImpactPage() {
       console.log('handleSubmit blocked: already submitting');
       return;
     }
-    
+
+    if (!step1MeetsMinimum()) {
+      submittedForStep3Ref.current = false;
+      setSubmitting(false);
+      setStep(1);
+      setMinEligibleError(MIN_ELIGIBLE_COUNT_MESSAGE);
+      return;
+    }
+
     const apiBase = boot?.apiBase || (typeof window !== 'undefined' ? window.location.origin : '');
     console.log('handleSubmit called with:', { apiBase, submitting });
     
@@ -529,6 +553,22 @@ export default function ImpactPage() {
               Tell us about your health plan so we can generate a personalized impact analysis.
             </p>
           </div>
+          {minEligibleError && (
+            <div
+              role="alert"
+              style={{
+                padding: 12,
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: 8,
+                color: '#991b1b',
+                fontSize: '0.95rem',
+                lineHeight: 1.5,
+              }}
+            >
+              {minEligibleError}
+            </div>
+          )}
           
           {/* Radio Button Selection - COMMENTED OUT FOR TESTING */}
           {/* 
@@ -850,7 +890,7 @@ export default function ImpactPage() {
             type="button" 
             onClick={handleNext}
             disabled={
-              (step === 1 && !validateStep1()) || 
+              (step === 1 && !validateStep1Basic()) || 
               (step === 2 && !validateStep2())
             }
             style={{ 
@@ -860,11 +900,11 @@ export default function ImpactPage() {
               background:'#111', 
               color:'white',
               cursor: (
-                (step === 1 && !validateStep1()) || 
+                (step === 1 && !validateStep1Basic()) || 
                 (step === 2 && !validateStep2())
               ) ? 'not-allowed' : 'pointer',
               opacity: (
-                (step === 1 && !validateStep1()) || 
+                (step === 1 && !validateStep1Basic()) || 
                 (step === 2 && !validateStep2())
               ) ? 0.5 : 1
             }}

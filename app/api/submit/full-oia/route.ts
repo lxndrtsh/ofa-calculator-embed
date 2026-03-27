@@ -1,4 +1,10 @@
 import { NextResponse } from 'next/server';
+import {
+  MIN_ELIGIBLE_COUNT,
+  MIN_ELIGIBLE_COUNT_MESSAGE,
+  impactSubmittedPrimaryCount,
+  parseFormCount,
+} from '../../../../lib/embedEligibility';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { getWebsiteUrl } from '../../utils/db';
@@ -195,6 +201,14 @@ export async function POST(req: Request) {
 
     console.log('Full-OIA submit: referralToken:', referralToken, 'type:', typeof referralToken);
 
+    const primaryCount = impactSubmittedPrimaryCount(form);
+    if (primaryCount < MIN_ELIGIBLE_COUNT) {
+      return NextResponse.json(
+        { ok: false, error: MIN_ELIGIBLE_COUNT_MESSAGE },
+        { status: 400 }
+      );
+    }
+
     // Get config directly
     const config = getConfig('full-oia');
 
@@ -202,8 +216,8 @@ export async function POST(req: Request) {
     const countyRate = await getCountyRate(form.state, form.county);
 
     // Perform calculations
-    const employees = Number(form.employees || '0');
-    const planMembersInput = Number(form.planMembers || '0');
+    const employees = parseFormCount(form.employees);
+    const planMembersInput = parseFormCount(form.planMembers);
     // If planMembers is provided, use it directly; otherwise calculate from employees
     const members = planMembersInput > 0 ? planMembersInput : Math.round(employees * (config.math.avg_dependents_per_employee ?? 2.5));
     const withRx = Math.round(members * config.math.rx_rate);
