@@ -82,7 +82,7 @@ export default function FullOIAPage() {
         }}>
           {step === 1 ? (
             <>
-              <img src="/images/SchoolDistrictCaseStudy.jpg" alt="School District Case Study" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 8, marginBottom: 24 }} />
+              <img src="/images/SchoolDistrictCaseStudy2.png" alt="School District Case Study" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 8, marginBottom: 24 }} />
               <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: 16, marginTop: 0 }}>Imagine your health plan achieving similar results.</h3>
               <p style={{ color: '#333', fontSize: '1rem', marginBottom: 0, lineHeight: 1.6 }}>This Florida school district recently committed to a 5-year renewal after realizing $1.35 million in first-year savings.</p>
             </>
