@@ -34,6 +34,42 @@
 })();
 </script>
 
+<script src="https://ofa-calculator-embed.vercel.app/cdn/leadcalc-simple-oia.min.js"></script>
+<div id="ofa-simple-oia"></div>
+<script>
+(function() {
+  var QUERY_KEYS = ['utm_rcode', 'utm_refcode', 'utm_referral_code'];
+  var COOKIE_NAME = 'utm_rcode';
+
+  function fromQuery() {
+    var q = typeof window !== 'undefined' && window.location && window.location.search
+      ? new URLSearchParams(window.location.search) : null;
+    if (!q) return null;
+    for (var i = 0; i < QUERY_KEYS.length; i++) {
+      var v = q.get(QUERY_KEYS[i]);
+      if (v && String(v).trim()) return String(v).trim();
+    }
+    return null;
+  }
+
+  function fromCookie(name) {
+    var m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[$()*+./?[\\^{|}]/g, '\\$&') + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  var code = fromQuery() || fromCookie(COOKIE_NAME);
+
+  OFACalculator.init('ofa-simple-oia', {
+    apiBase: 'https://ofa-calculator-embed.vercel.app',
+    iframeBase: 'https://ofa-calculator-embed.vercel.app',
+    configVersion: '1.0.0',
+    theme: 'light',
+    referralCookie: code || '',
+    hubspotIntegration: true
+  });
+})();
+</script>
+
 <div style="background-color: #fff; max-width: 1140px; margin: auto;">
 <script src="https://ofa-calculator-embed.vercel.app/cdn/leadcalc-full-oia.min.js"></script>
 <div id="ofa-full-oia"></div>

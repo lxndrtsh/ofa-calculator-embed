@@ -10,3 +10,16 @@
     hubspotIntegration: true
   });
 </script>
+
+<script src="https://ofa-calculator-embed.vercel.app/cdn/leadcalc-simple-oia.min.js"></script>
+<div id="ofa-simple-oia"></div>
+<script>
+  OFACalculator.init('ofa-simple-oia', {
+    apiBase: 'https://ofa-calculator-embed.vercel.app',
+    iframeBase: 'https://ofa-calculator-embed.vercel.app',
+    configVersion: '1.0.0',
+    theme: 'light',
+    referralCookie: 'referral',
+    hubspotIntegration: true
+  });
+</script>

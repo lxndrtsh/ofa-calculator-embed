@@ -42,6 +42,23 @@ npm run build
 </script>
 ```
 
+## Simple OIA Embed Example
+
+```html
+<script src="https://YOUR_DOMAIN/cdn/leadcalc-simple-oia.min.js"></script>
+<div id="ofa-simple-oia"></div>
+<script>
+  OFACalculator.init('ofa-simple-oia', {
+    apiBase: 'https://YOUR_DOMAIN',
+    iframeBase: 'https://YOUR_DOMAIN',
+    configVersion: '1.0.0',
+    theme: 'light',
+    referralCookie: 'referral',
+    hubspotIntegration: true
+  });
+</script>
+```
+
 ## TODO
 - Implement GHL + Referral Tool calls in API routes using server-side secrets.
 - Add origin checks in loaders once domain is finalized.
