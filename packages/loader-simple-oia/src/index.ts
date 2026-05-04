@@ -2,6 +2,7 @@ type Options = {
   apiBase: string;
   configVersion?: string;
   theme?: 'light'|'dark';
+  /** Resolved referral code from the host (e.g. from ?utm_rcode=). Passed through to boot as `referralToken`. Not a cookie name. */
   referralCookie?: string;
   iframeBase?: string;
   hubspotIntegration?: boolean;
@@ -19,8 +20,7 @@ declare global {
   const DEFAULTS: Partial<Options> = {
     iframeBase: (typeof window !== 'undefined' ? window.location.origin : '') + '',
     theme: 'light',
-    configVersion: '1.0.0',
-    referralCookie: 'referral'
+    configVersion: '1.0.0'
   };
   function getEl(elOrId: HTMLElement|string): HTMLElement {
     if (typeof elOrId === 'string') {
@@ -30,9 +30,12 @@ declare global {
     }
     return elOrId;
   }
-  function readCookie(name: string): string | null {
-    const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([$()*+./?[\\\\]^{|}])/g, '\\$1') + '=([^;]*)'));
-    return m ? decodeURIComponent(m[1]) : null;
+  /** `referralCookie` on init is the resolved code string from the host (e.g. ?utm_rcode=), not a cookie name. */
+  function referralCodeFromInit(opts: Options): string | null {
+    const c = opts.referralCookie;
+    if (typeof c !== 'string') return null;
+    const t = c.trim();
+    return t.length ? t : null;
   }
   function init(elOrId: HTMLElement|string, options: Options) {
     try {
@@ -64,7 +67,7 @@ declare global {
       iframe.src = src.toString();
       wrapper.appendChild(iframe);
       container.appendChild(wrapper);
-      const referral = readCookie(opts.referralCookie!);
+      const referral = referralCodeFromInit(opts);
       function onMessage(ev: MessageEvent) {
         const allowed = new URL(opts.iframeBase!).origin;
         if (ev.origin !== allowed) return;
@@ -75,7 +78,7 @@ declare global {
               apiBase: opts.apiBase,
               configVersion: String(opts.configVersion),
               theme: opts.theme,
-              referralToken: referral ?? null,
+              referralToken: referral,
               hubspotIntegration: opts.hubspotIntegration === true
             }
           }, allowed);

@@ -2,6 +2,7 @@ type Options = {
   apiBase: string;
   configVersion?: string;
   theme?: 'light'|'dark';
+  /** Resolved referral code from the host page (e.g. `referralCookie: code` where code comes from ?utm_rcode=). Not a cookie name. */
   referralCookie?: string;
   iframeBase?: string;
   hubspotIntegration?: boolean;
@@ -19,8 +20,7 @@ declare global {
   const DEFAULTS: Partial<Options> = {
     iframeBase: (typeof window !== 'undefined' ? window.location.origin : '') + '',
     theme: 'light',
-    configVersion: '1.0.0',
-    referralCookie: 'referral'
+    configVersion: '1.0.0'
   };
   function getEl(elOrId: HTMLElement|string): HTMLElement {
     if (typeof elOrId === 'string') {
@@ -44,6 +44,12 @@ declare global {
       if (v && String(v).trim()) return String(v).trim();
     }
     return null;
+  }
+  function referralCodeFromInit(opts: Options): string | null {
+    const c = opts.referralCookie;
+    if (typeof c !== 'string') return null;
+    const t = c.trim();
+    return t.length ? t : null;
   }
   function init(elOrId: HTMLElement|string, options: Options) {
     try {
@@ -81,8 +87,11 @@ declare global {
     iframe.src = src.toString();
     wrapper.appendChild(iframe);
     container.appendChild(wrapper);
-    // Cookie first (host may set it from utm_rcode); fallback to URL so ?utm_rcode= works without a cookie
-    const referral = readCookie(opts.referralCookie!) ?? readReferralFromQuery();
+    const referral =
+      referralCodeFromInit(opts) ??
+      readCookie('referral') ??
+      readCookie('utm_rcode') ??
+      readReferralFromQuery();
     if (referral) {
       console.log('OFACalculator: referral token for boot:', referral);
     }
@@ -96,7 +105,7 @@ declare global {
             apiBase: opts.apiBase,
             configVersion: String(opts.configVersion),
             theme: opts.theme,
-            referralToken: referral ?? null,
+            referralToken: referral,
             hubspotIntegration: opts.hubspotIntegration === true
           }
         }, allowed);
