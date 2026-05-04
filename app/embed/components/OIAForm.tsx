@@ -18,6 +18,7 @@ function useBoot(): Boot | null {
     postToParent({ type: 'OFA_CALCULATOR_READY' });
     return () => window.removeEventListener('message', onMsg);
   }, []);
+  console.log('OIAForm: boot', boot);
   return boot;
 }
 
